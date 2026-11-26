@@ -5,7 +5,7 @@ import { useSim, threatForObservation } from '../world/store'
 import { useEvents } from '../sync/events'
 import { engineNow } from '../world/clock'
 import { DriveScreen, StepList, TabBar, useReportSteps } from '../product/Phone'
-import { MapOverlay, MiniMap, STATE, StateGlyph, egoCenter } from '../product/bits'
+import { MapOverlay, MiniMap, STATE, StateGlyph, egoCenter, stateLine } from '../product/bits'
 import { SurfaceNav } from '../app/SurfaceNav'
 import { onBump, simulateBump, startMotion, useMotion } from '../sense/motion'
 import { placeReport, watchLocation, type Placed } from '../sense/location'
@@ -207,12 +207,36 @@ function SensingCard() {
   )
 }
 
+const STATIC = new Set<string>(['pothole', 'barricade', 'debris', 'waterlogging', 'manhole', 'speed-breaker', 'stalled-vehicle', 'footpath', 'unknown'])
+const RANK_PHONE = (th: { state: string }) => (th.state === 'resolved' ? 2 : th.state === 'predicted' ? 1 : 0)
+
 function MapTab() {
   const world = useSim((s) => s.world)!
   const t = useSim((s) => s.t)
   const threats = useSim((s) => s.threats)
   const center = useMemo(() => egoCenter(world, Math.floor(t / 6) * 6), [world, t])
-  const list = threats.filter((th) => th.state !== 'resolved').sort((a, b) => b.confidence - a.confidence)
+  const list = threats.filter((th) => th.state !== 'resolved' || th.clearedBy > 0).sort((a, b) => RANK_PHONE(a) - RANK_PHONE(b) || b.confidence - a.confidence)
+  const add = useEvents((s) => s.addObservation)
+  const deviceId = useEvents((s) => s.deviceId)
+  const [gone, setGone] = useState<Set<string>>(() => new Set())
+  // "Passed it, nothing there": a resident's vote that a static hazard has gone. Never counts
+  // against their own report, and one vote per device, like every other source.
+  const notThere = (th: (typeof threats)[number]) => {
+    add({
+      id: `clear-${deviceId}-${Date.now()}`,
+      t: engineNow(),
+      kind: th.kind === 'risk-zone' ? 'unknown' : th.kind,
+      source: 'citizen',
+      sourceId: deviceId,
+      polarity: -1,
+      reputation: 0.8,
+      pos: th.pos,
+      conf: 0.85,
+      who: `Resident ${deviceId.slice(-4).toUpperCase()}`,
+      how: 'Passed the spot, nothing there',
+    })
+    setGone((g) => new Set(g).add(th.id))
+  }
   return (
     <div>
       <div className="relative aspect-square overflow-hidden">
@@ -230,10 +254,20 @@ function MapTab() {
               <span className="flex-1 text-[14px] leading-tight">
                 {th.state === 'potential' || th.state === 'noticed' ? `Possible ${th.label.toLowerCase()}` : th.label}
                 <span className="block text-[11px]" style={{ color: STATE[th.state].text }}>
-                  {STATE[th.state].word}, {th.lane}
+                  {stateLine(th)}
                 </span>
               </span>
-              <span className="figures text-[11px] text-ink-3">{Math.round(th.confidence * 100)}%</span>
+              {STATIC.has(th.kind) && th.state !== 'resolved' && th.state !== 'predicted' ? (
+                gone.has(th.id) ? (
+                  <span className="text-[11px] text-live">Noted</span>
+                ) : (
+                  <button onClick={() => notThere(th)} className="border border-ink/25 px-2 py-1 text-[11px] hover:bg-clay-deep">
+                    Not there now
+                  </button>
+                )
+              ) : (
+                <span className="figures text-[11px] text-ink-3">{Math.round(th.confidence * 100)}%</span>
+              )}
             </li>
           ))}
         </ul>

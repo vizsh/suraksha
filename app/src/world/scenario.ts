@@ -56,6 +56,7 @@ const DT = 0.05
 export const BUS_S = 300
 export const BARRICADE_S = 430
 export const POTHOLE_S = 130
+export const DEBRIS_S = 215
 export const PED_T0 = 21
 export const PED_T1 = 31.5
 
@@ -125,6 +126,17 @@ export function buildWorld(data: CorridorData): World {
   // Barricade: put up tonight, on no map. A resident reports it; cars start swerving; a dashcam names it.
   add({ ...base('barricade'), key: 'barricade-citizen', at: 6, source: 'citizen', sourceId: 'resident-ward-s-77', reputation: 0.6, pos: at(BARRICADE_S, -3.5, 4), conf: 0.9, who: 'Resident, ward S', how: 'Photo, first report from this account' })
   add({ ...base('barricade'), key: 'barricade-vision', at: 18, source: 'vision', sourceId: 'MH-47 BT 6602', pos: at(BARRICADE_S, -3.6, 1), conf: 0.78, who: 'MH-47 BT 6602 dashcam', how: 'Open-vocabulary detector: "barricade"' })
+
+  // Debris: a fallen branch reported earlier this evening by two dashcams and a resident.
+  // Somebody has since dragged it off the road. Nobody reports that; cars that pass the spot
+  // with their cameras on and see an empty lane quietly vote it away (pass-by verification).
+  const MIN = 60
+  add({ ...base('debris'), key: 'debris-vision-1', at: -50 * MIN, source: 'vision', sourceId: 'MH-01 DB 4410', pos: at(DEBRIS_S, 0, 1.5), conf: 0.9, who: 'MH-01 DB 4410 dashcam', how: 'Open-vocabulary detector: "fallen branch", 0.90', note: 'fallen branch' })
+  add({ ...base('debris'), key: 'debris-citizen', at: -45 * MIN, source: 'citizen', sourceId: 'resident-ward-s-31', reputation: 0.85, pos: at(DEBRIS_S, 0.6, 3), conf: 0.9, who: 'Resident, ward S', how: 'Photo and location', note: 'fallen branch' })
+  add({ ...base('debris'), key: 'debris-vision-2', at: -30 * MIN, source: 'vision', sourceId: 'MH-04 RN 7781', pos: at(DEBRIS_S, -0.4, 1.5), conf: 0.88, who: 'MH-04 RN 7781 dashcam', how: 'Open-vocabulary detector: "fallen branch", 0.88' })
+  for (const [t, plate] of [[4.5, 'MH-02 FF 1187'], [8.5, 'MH-43 ZR 0045'], [12.5, 'MH-01 QA 3391']] as const) {
+    add({ kind: 'debris', polarity: -1, key: `debris-clear-${t}`, at: t, source: 'vision', sourceId: plate, pos: at(DEBRIS_S, 0, 1), conf: 0.9, who: `${plate} dashcam`, how: 'Passed the spot, lane clear' })
+  }
 
   const manoeuvres: ScriptManoeuvre[] = [
     { at: 10.5, vehicleId: 'MH-02 FF 1187', s: BARRICADE_S - 6 },

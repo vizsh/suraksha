@@ -66,5 +66,6 @@ export interface Threat {
   observations: Observation[]
   firstSeen: number
   lastSeen: number
+  clearedBy: number // distinct passers since the last sighting whose sensors saw nothing there
   note?: string
 }

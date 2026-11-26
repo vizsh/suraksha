@@ -41,6 +41,7 @@ export interface ThreatView {
   lastSeen: number
   synthetic: boolean
   ownOnly: boolean // only reported by this car's own cabin monitor: not something to warn this driver about
+  clearedBy: number // passers since the last sighting who saw nothing there
   why?: string
 }
 
@@ -66,6 +67,7 @@ const LABEL: Record<HazardKind, string> = {
 export function hazardLabel(kind: HazardKind, note?: string) {
   if (kind === 'pedestrian' && note) return `${LABEL.pedestrian} ${note}`
   if (kind === 'pothole' && note) return `${LABEL.pothole}, ${note}`
+  if (kind === 'debris' && note) return `${LABEL.debris}, ${note}`
   return LABEL[kind]
 }
 
@@ -116,6 +118,7 @@ function toView(w: World, th: Threat, now: number, egoS: number): ThreatView {
     lastSeen: th.lastSeen,
     synthetic: origin === 'script',
     ownOnly: th.observations.every((o) => o.sourceId.startsWith('monitor:')),
+    clearedBy: th.clearedBy,
   }
 }
 
@@ -189,6 +192,7 @@ export const useSim = create<SimState>((set, get) => ({
         lastSeen: 0,
         synthetic: true,
         ownOnly: false,
+        clearedBy: 0,
         why: z.why,
       })
     }
@@ -221,6 +225,7 @@ export const useSim = create<SimState>((set, get) => ({
           lastSeen: 0,
           synthetic: mon.simulated,
           ownOnly: false,
+          clearedBy: 0,
           why: `${mm.toFixed(0)} mm of rain in the next 6 h over a low point`,
         })
       }

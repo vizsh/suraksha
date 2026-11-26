@@ -312,7 +312,7 @@ function Arcs({ world }: { world: World }) {
 
 function Markers({ labels, mode, driver, own = false }: { labels: boolean; mode: SheetMode; driver: boolean; own?: boolean }) {
   // subscribe to a signature, not the array: the store rebuilds threats six times a second
-  const sig = useSim((st) => st.threats.map((t) => `${t.id}:${t.state}:${t.sources.length}`).join('|'))
+  const sig = useSim((st) => st.threats.map((t) => `${t.id}:${t.state}:${t.sources.length}:${t.clearedBy}`).join('|'))
   const threats = useMemo(() => useSim.getState().threats, [sig])
   return (
     <group>
@@ -333,6 +333,28 @@ function ringPoints(r: number) {
     pts.push([Math.cos(a) * r, 0, Math.sin(a) * r])
   }
   return pts
+}
+
+const scanGeo = new THREE.RingGeometry(0.94, 1, 72).rotateX(-Math.PI / 2)
+
+/** Pass-by verification made visible: each car that passes and sees an empty lane sends a sweep out from the spot. */
+function PassScan({ count }: { count: number }) {
+  const mesh = useRef<THREE.Mesh>(null)
+  const start = useRef(-1)
+  const last = useRef(count)
+  const mat = useMemo(() => new THREE.MeshBasicMaterial({ color: '#1f6fb2', transparent: true, opacity: 0, depthTest: false, side: THREE.DoubleSide }), [])
+  useFrame(({ clock }) => {
+    if (!mesh.current) return
+    if (count > last.current) start.current = clock.elapsedTime
+    last.current = count
+    const k = start.current < 0 ? 1 : (clock.elapsedTime - start.current) / 1.8
+    mesh.current.visible = k < 1
+    if (k >= 1) return
+    const e = 1 - (1 - k) ** 3
+    mesh.current.scale.setScalar(4 + e * 34)
+    mat.opacity = 0.85 * (1 - k)
+  })
+  return <mesh ref={mesh} geometry={scanGeo} material={mat} position={[0, 0.6, 0]} renderOrder={41} visible={false} />
 }
 
 /** A survey benchmark: inverted triangle on a stem when confirmed, dashed ring while potential,
@@ -400,6 +422,17 @@ function Benchmark({ th, labels, mode, compact = false }: { th: ThreatView; labe
       )}
       {st === 'resolved' && (
         <Line points={rSmall} color={color} lineWidth={1.2} dashed dashSize={1} gapSize={2.5} depthTest={false} transparent opacity={0.6} />
+      )}
+      <PassScan count={th.clearedBy} />
+      {labels && st === 'resolved' && th.clearedBy > 0 && (
+        <Html position={[0, 12, 0]} center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>
+          <div
+            className={'whitespace-nowrap border-l px-2 py-0.5 text-[11px] leading-tight ' + (mode === 'day' ? 'bg-clay/75 text-ink-2' : 'bg-night/70 text-clay/80')}
+            style={{ borderColor: '#1f6fb2', fontVariationSettings: "'wdth' 82" }}
+          >
+            {th.label}: cleared by {th.clearedBy} passing car{th.clearedBy === 1 ? '' : 's'}
+          </div>
+        </Html>
       )}
       {labels && st !== 'resolved' && (
         <Html position={[0, predicted ? 10 : 24, 0]} center zIndexRange={[10, 0]} style={{ pointerEvents: 'none' }}>

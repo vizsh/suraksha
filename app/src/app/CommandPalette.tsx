@@ -13,7 +13,9 @@ import { useWeather } from '../sense/weather'
 import { STATE, StateGlyph } from '../product/bits'
 
 const BEATS: [number, string][] = [
+  [4.5, 'A passing car sees the branch gone'],
   [6, 'Resident reports a barricade'],
+  [8.5, 'Passing cars clear the fallen branch'],
   [12, 'Cars swerve at the barricade'],
   [18, 'Dashcam confirms the barricade'],
   [22.3, 'Car ahead sees the pedestrian'],

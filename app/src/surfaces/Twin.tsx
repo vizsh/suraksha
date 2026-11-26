@@ -5,7 +5,7 @@ import { useSim } from '../world/store'
 import { useWeather, weatherWords } from '../sense/weather'
 import { useEvents } from '../sync/events'
 import { SurfaceNav } from '../app/SurfaceNav'
-import { STATE, StateGlyph } from '../product/bits'
+import { STATE, StateGlyph, stateLine } from '../product/bits'
 import { useAtmos, type TimeOfDay } from '../world/atmos'
 
 const VIEWS: [TwinView, string][] = [
@@ -100,7 +100,7 @@ export default function Twin() {
                     {th.state === 'potential' || th.state === 'noticed' ? `Possible ${th.label.toLowerCase()}` : th.label}
                   </span>
                   <span className="block text-[11px]" style={{ color: STATE[th.state].text }}>
-                    {STATE[th.state].word}, {th.lane}
+                    {stateLine(th)}
                   </span>
                 </span>
                 <span className="figures text-[10px] text-ink-3">{Math.round(th.confidence * 100)}%</span>

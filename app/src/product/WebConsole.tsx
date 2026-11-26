@@ -8,7 +8,7 @@ import { engineNow } from '../world/clock'
 import { useEvents, type WorkOrder } from '../sync/events'
 import { useWeather, weatherWords } from '../sense/weather'
 import type { HazardKind } from '../engine/types'
-import { STATE, StateGlyph } from './bits'
+import { STATE, StateGlyph, stateLine } from './bits'
 import { activeForecast, totalMm, useMonsoon, WARN_MM } from '../sense/monsoon'
 import { toLatLon } from '../world/corridor'
 
@@ -23,7 +23,8 @@ export function WebConsole({ world }: { world: World }) {
   const [tab, setTab] = useState<Tab>('live')
   const [sel, setSel] = useState<string | null>(null)
   const live = useMemo(
-    () => threats.filter((t) => t.state !== 'resolved').sort((a, b) => RANK[a.state] - RANK[b.state] || b.confidence - a.confidence),
+    // cleared-by-passers stay listed (at the bottom) so the operator sees the network closing them
+    () => threats.filter((t) => t.state !== 'resolved' || t.clearedBy > 0).sort((a, b) => RANK[a.state] - RANK[b.state] || b.confidence - a.confidence),
     [threats],
   )
   // Follow the threat the driver is being told about, unless the operator picked one.
@@ -148,6 +149,7 @@ function LiveTab({ live, current, onSelect }: { live: ThreatView[]; current?: Th
                 <StateGlyph state={t.state} size={13} />
                 <span className="flex-1 truncate">{t.state === 'potential' || t.state === 'noticed' ? `Possible ${t.label.toLowerCase()}` : t.label}</span>
                 {t.origin === 'user' && <span className="text-[10px] text-live">live report</span>}
+                {t.state === 'resolved' && <span className="text-[10px] text-ink-3">cleared by {t.clearedBy}</span>}
                 <span className="figures text-[10px] text-ink-3">{Math.round(t.confidence * 100)}%</span>
               </button>
             </li>
@@ -164,7 +166,7 @@ function LiveTab({ live, current, onSelect }: { live: ThreatView[]; current?: Th
             </span>
           </div>
           <div className="mt-1 text-[12px]" style={{ color: STATE[current.state].text }}>
-            {STATE[current.state].word}, {current.lane}
+            {stateLine(current)}
             {current.sourceCount > 0 && current.state !== 'predicted' && `, ${current.sourceCount} independent source${current.sourceCount === 1 ? '' : 's'}`}
           </div>
           <div className="mt-3 h-[3px] w-full bg-clay-shade/60">
@@ -176,6 +178,7 @@ function LiveTab({ live, current, onSelect }: { live: ThreatView[]; current?: Th
               <li key={s.id} className="grid grid-cols-[1fr_auto] gap-2 text-[12px]">
                 <span>
                   {s.who}
+                  {s.clear && <span className="ml-1.5 text-[10px] font-medium text-live">saw nothing</span>}
                   <span className="block text-[11px] text-ink-3">{s.how}</span>
                 </span>
                 <span className="text-[10px] text-ink-3">{s.source === 'history' && s.ageMs === 0 ? 'model' : ago(s.ageMs)}</span>

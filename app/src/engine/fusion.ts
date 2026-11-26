@@ -160,7 +160,7 @@ export function evidence(obs: Observation[], kind: HazardKind, now: number) {
   for (const c of clears.values()) conf *= 1 - c
 
   const resolvedByOperator = obs.some((o) => o.resolve && o.t <= now && o.t >= lastPositive)
-  return { conf, sources, lastPositive, resolvedByOperator }
+  return { conf, sources, lastPositive, resolvedByOperator, clears: clears.size }
 }
 
 export function classify(conf: number, sources: number, wasConfirmed: boolean, resolved: boolean): ThreatState {
@@ -209,6 +209,7 @@ export function fuse(observations: Observation[], now: number): Threat[] {
       observations: obs,
       firstSeen: positives[0].t,
       lastSeen: latest.t,
+      clearedBy: now_.clears,
       note: [...positives].reverse().find((o) => o.note)?.note,
     })
   }

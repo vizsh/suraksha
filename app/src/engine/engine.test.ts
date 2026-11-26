@@ -79,6 +79,36 @@ describe('fusion', () => {
     expect(fuse([...base, ...clears], 2000)[0].state).toBe('resolved')
   })
 
+  it('counts each passer once, and a fresh sighting resets the count', () => {
+    const base = [
+      obs({ kind: 'debris', source: 'vision', sourceId: 'a', t: 0 }),
+      obs({ kind: 'debris', source: 'vision', sourceId: 'b', t: 100 }),
+    ]
+    const clears = [
+      obs({ kind: 'debris', source: 'vision', sourceId: 'x', polarity: -1, t: 1000 }),
+      obs({ kind: 'debris', source: 'vision', sourceId: 'x', polarity: -1, t: 1100 }),
+      obs({ kind: 'debris', source: 'vision', sourceId: 'y', polarity: -1, t: 1200 }),
+    ]
+    const [t] = fuse([...base, ...clears], 2000)
+    expect(t.clearedBy).toBe(2)
+    // somebody sees it again after the passers: their "nothing there" no longer counts
+    const again = obs({ kind: 'debris', source: 'vision', sourceId: 'c', t: 3000 })
+    const [u] = fuse([...base, ...clears, again], 3100)
+    expect(u.clearedBy).toBe(0)
+    expect(u.state).toBe('confirmed')
+  })
+
+  it('the reporter passing again does not clear their own report', () => {
+    const base = [
+      obs({ kind: 'debris', source: 'vision', sourceId: 'a', t: 0 }),
+      obs({ kind: 'debris', source: 'vision', sourceId: 'b', t: 100 }),
+    ]
+    const own = obs({ kind: 'debris', source: 'vision', sourceId: 'a', polarity: -1, t: 1000 })
+    const [t] = fuse([...base, own], 2000)
+    expect(t.clearedBy).toBe(0)
+    expect(t.state).toBe('confirmed')
+  })
+
   it('an operator closes a threat and a newer report reopens it', () => {
     const base = [
       obs({ kind: 'barricade', source: 'vision', sourceId: 'a', t: 0 }),

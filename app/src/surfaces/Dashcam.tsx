@@ -23,6 +23,8 @@ const SURF: { key: SurfaceLabel; label: string }[] = [
   { key: 'clear', label: 'Clear road' },
 ]
 
+const PASSABLE = new Set<string>(['pothole', 'barricade', 'debris', 'waterlogging', 'manhole', 'stalled-vehicle', 'unknown'])
+
 export default function Dashcam() {
   const world = useSim((s) => s.world)!
   const threats = useSim((s) => s.threats)
@@ -60,9 +62,44 @@ export default function Dashcam() {
       who: `Phone dashcam ${deviceId.slice(-4).toUpperCase()}`,
       how: `${how}, ${score.toFixed(2)}${snap.road ? `, ${snap.road}${snap.lane ? ` lane ${snap.lane}` : ''}` : ''}`,
     })
-    setFlash(hazardLabel(kind))
+    setFlash(`Reported to the network: ${hazardLabel(kind)}`)
     setTimeout(() => setFlash(null), 1800)
   }
+
+  // Pass-by verification: driving past a known hazard with a real position fix while the road
+  // model reads "clear road" is a vote that it has gone. One vote per hazard per drive.
+  const lastClear = useRef(-Infinity)
+  const passed = useRef(new Set<string>())
+  useEffect(() => {
+    if (source === 'none') return
+    const id = setInterval(() => {
+      const place = placeReport(world)
+      if (place.virtual || performance.now() - lastClear.current > 3000) return
+      for (const th of useSim.getState().threats) {
+        if (!PASSABLE.has(th.kind) || th.state === 'resolved' || th.state === 'predicted' || passed.current.has(th.id)) continue
+        if (Math.hypot(th.pos[0] - place.pos[0], th.pos[1] - place.pos[1]) > 20) continue
+        // this device reported it itself: its own "nothing there" would not count anyway
+        if (th.sources.some((s2) => s2.who.endsWith(deviceId.slice(-4).toUpperCase()) && !s2.clear)) continue
+        passed.current.add(th.id)
+        add({
+          id: `pass-${deviceId}-${Date.now()}`,
+          t: engineNow(),
+          kind: th.kind as HazardKind,
+          source: 'vision',
+          sourceId: deviceId,
+          polarity: -1,
+          pos: th.pos,
+          conf: 0.85,
+          who: `Phone dashcam ${deviceId.slice(-4).toUpperCase()}`,
+          how: 'Passed the spot, road-surface model read clear road',
+        })
+        setFlash(`Passed ${th.label.toLowerCase()}: lane clear, told the network`)
+        setTimeout(() => setFlash(null), 2400)
+      }
+    }, 1000)
+    return () => clearInterval(id)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [source, world])
 
   // the detection loop
   useEffect(() => {
@@ -107,6 +144,8 @@ export default function Dashcam() {
         void classifySurface(c)
           .then((probs) => {
             if (!probs) return
+            const top = (Object.entries(probs) as [string, number][]).reduce((a, b) => (b[1] > a[1] ? b : a))
+            if (top[0] === 'clear' && top[1] >= 0.55) lastClear.current = performance.now()
             const hit = gate.surface(probs, performance.now())
             if (hit) report(SURFACE_KIND[hit], probs[hit], `Road-surface model: ${hit}`)
           })
@@ -253,7 +292,7 @@ export default function Dashcam() {
                   className="absolute left-1/2 top-4 -translate-x-1/2 rounded-full bg-[#0d1113]/90 px-4 py-2 text-[14px]"
                   style={{ boxShadow: 'inset 0 0 0 1.5px #1f6fb2' }}
                 >
-                  Reported to the network: {flash}
+                  {flash}
                 </motion.div>
               )}
             </AnimatePresence>

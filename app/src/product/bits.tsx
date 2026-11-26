@@ -15,6 +15,15 @@ export const STATE: Record<ThreatState, { word: string; color: string; text: str
   faded: { word: 'Faded', color: '#9a9e9a', text: '#565e63' },
 }
 
+/** The state line under a threat's name: says when passing cars cleared it or are re-checking it. */
+export function stateLine(th: { state: ThreatState; lane: string; clearedBy?: number }) {
+  const n = th.clearedBy ?? 0
+  const cars = `${n} passing car${n === 1 ? '' : 's'}`
+  if (th.state === 'resolved' && n > 0) return `Cleared by ${cars}, ${th.lane}`
+  if (n > 0 && th.state !== 'predicted') return `${STATE[th.state].word}, ${th.lane}. Re-checking: ${cars} saw nothing`
+  return `${STATE[th.state].word}, ${th.lane}`
+}
+
 /** Survey notation for threat state. Shape carries the state, colour repeats it. */
 export function StateGlyph({ state, size = 14, night = false }: { state: ThreatState | 'live'; size?: number; night?: boolean }) {
   const c = state === 'live' ? '#1f6fb2' : STATE[state].color
