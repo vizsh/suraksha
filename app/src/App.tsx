@@ -11,6 +11,7 @@ const Drive = lazy(() => import('./surfaces/Drive'))
 const CarScreen = lazy(() => import('./surfaces/CarScreen'))
 const PhoneApp = lazy(() => import('./surfaces/PhoneApp'))
 const Director = lazy(() => import('./surfaces/Director'))
+const Dashcam = lazy(() => import('./surfaces/Dashcam'))
 
 function Ready({ children }: { children: React.ReactNode }) {
   const world = useSim((s) => s.world)
@@ -30,6 +31,7 @@ export default function App() {
             <Route path="/car" component={CarScreen} />
             <Route path="/app" component={PhoneApp} />
             <Route path="/director" component={Director} />
+            <Route path="/dashcam" component={Dashcam} />
             <Route>
               <Loading label="No surface at this address. Press 0 for the showcase." />
             </Route>

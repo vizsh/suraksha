@@ -1,5 +1,13 @@
 # Changelog
 
+## Phase 4: on-device hazard detection (2026-11-26)
+
+- **Dashcam AI** at `/dashcam` (key 7, and from the phone app's Drive tab): the phone camera, or any dashcam video or photo, becomes a connected-car sensor.
+- **Two on-device models:** MediaPipe EfficientDet-Lite0 for people and animals every frame, and a CLIP ViT-B/32 vision encoder (transformers.js, WebGPU with WASM fallback) that checks the road ahead for potholes, barricades, cones and waterlogging every 1.5 s. Class embeddings are precomputed, so phones download only the 89 MB vision encoder, once.
+- **A strict gate:** road-ahead zone, 3 sightings in 2 s for objects; 55 percent, a 25-point lead over "clear road" and 3 checks in a row for road surfaces; 10 s cooldown. Reports are map-matched to a lane and fused by the engine like any dashcam.
+- **Live instrument panel:** detection brackets, the road-ahead zone, live class probabilities, and each report's engine verdict.
+- **Tests:** gate and zero-shot classification (34 tests in total). See [docs/DETECTION.md](docs/DETECTION.md), including honest accuracy limits.
+
 ## Phase 3: split view and offline (2026-11-26)
 
 - **One car vs the network:** the same night moment from the driver's seat rendered twice with a draggable divider. Left shows only what the car's own cameras know; right shows the fused network, with the pedestrian drawn through the bus. Jump buttons pause on the moments that matter.

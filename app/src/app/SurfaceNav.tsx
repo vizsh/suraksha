@@ -11,6 +11,7 @@ export const SURFACES = [
   { href: '/car', key: '4', label: 'In-dash screen', what: '1920 by 720 car display' },
   { href: '/app', key: '5', label: 'Phone app', what: 'Drive mode and citizen reports' },
   { href: '/director', key: '6', label: 'Director', what: 'Run the demo: clock, beats, QR' },
+  { href: '/dashcam', key: '7', label: 'Dashcam AI', what: 'On-device hazard detection from a phone camera' },
 ] as const
 
 /** Small surface switcher shared by every full-screen surface. Number keys jump between surfaces. */

@@ -12,6 +12,7 @@ SuRaksha Mesh: a virtual V2X road-safety prototype for the MSIL × IIT Bombay E-
 | Production build | `npm run build` |
 | Refresh OSM data | `npm run data` |
 | Re-download assets | `node scripts/fetch-assets.mjs` |
+| Rebuild CLIP class embeddings | `node scripts/clip-labels.mjs` |
 
 ## Rules
 

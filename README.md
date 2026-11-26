@@ -12,7 +12,7 @@ A virtual V2X network that turns the cars and phones already on Indian roads int
 ![three.js](https://img.shields.io/badge/three.js-r187-1c2226?style=flat-square&logo=threedotjs&logoColor=e7e3d9)
 ![TypeScript](https://img.shields.io/badge/TypeScript-7-1c2226?style=flat-square&logo=typescript&logoColor=e7e3d9)
 ![Vite](https://img.shields.io/badge/Vite-8-1c2226?style=flat-square&logo=vite&logoColor=e7e3d9)
-![Engine tests](https://img.shields.io/badge/engine_tests-20_passing-1f6fb2?style=flat-square)
+![Tests](https://img.shields.io/badge/tests-34_passing-1f6fb2?style=flat-square)
 ![Deploy](https://img.shields.io/badge/deploy-Vercel-1c2226?style=flat-square&logo=vercel&logoColor=e7e3d9)
 
 **Maruti Suzuki Innovation × IIT Bombay E-Summit Ideathon 2026** · AI, IoT and Intelligent Urban Mobility
@@ -85,6 +85,8 @@ One shared world, seven live surfaces. Every device follows the same scenario se
 </table>
 
 <p align="center"><img src="docs/images/split-view.jpg" alt="Split view: the driver's own cameras see nothing, while the network already knows about the pedestrian and the barricade" width="100%" /><br/><b>One car vs the network</b> · drag the divider: your cameras alone, or everything the network knows</p>
+
+<p align="center"><img src="docs/images/dashcam.jpg" alt="Dashcam AI: on-device object detection with corner brackets, the road-ahead zone and live road-surface probabilities" width="100%" /><br/><b>Dashcam AI</b> <code>/dashcam</code> · on-device detection: EfficientDet objects every frame, CLIP road-surface check, strict gate, then the engine</p>
 
 <p align="center"><img src="docs/images/palette.jpg" alt="Command palette searching for the barricade" width="70%" /><br/><b>Command palette</b> · Ctrl/Cmd + K: surfaces, threats, story moments, layers</p>
 
@@ -204,7 +206,7 @@ stateDiagram-v2
 | 3D | three.js r187, React Three Fiber 9, drei, postprocessing (N8AO, Bloom, AgX), 3d-tiles-renderer |
 | UI | Tailwind CSS v4, shadcn/ui (restyled), React Bits (VariableProximity), Motion, Phosphor icons |
 | Type | Mona Sans (variable width), Martian Mono, self-hosted |
-| Sensing | MediaPipe Face Landmarker (on device), DeviceMotion, Geolocation, camera capture |
+| Sensing | MediaPipe Face Landmarker and Object Detector, CLIP via transformers.js (all on device), DeviceMotion, Geolocation, camera capture |
 | Data | OpenStreetMap via Overpass, Esri World Imagery, Open-Meteo, Poly Haven (CC0), CesiumMan (CC-BY 4.0) |
 | Optional | Google Photorealistic 3D Tiles (your key), Upstash Redis on Vercel for cross-device sync |
 
@@ -261,6 +263,7 @@ docs/                      architecture, engine, design, data, demo, roadmap, pl
 | [ENGINE](docs/ENGINE.md) | Fusion maths, parameters, lifecycle, relevance, tests |
 | [DESIGN](docs/DESIGN.md) | The Live Survey Sheet visual system, realism pipeline, rules |
 | [DATA](docs/DATA.md) | Every data source, licence, and what is synthetic |
+| [DETECTION](docs/DETECTION.md) | On-device hazard detection: models, gate, limits |
 | [DEMO](docs/DEMO.md) | The 7-minute pitch, multi-device setup, deployment |
 | [ROADMAP](docs/ROADMAP.md) | Next features: real functionality and visual upgrades |
 | [PLAN](docs/PLAN.md) | The original ideation and build plan |

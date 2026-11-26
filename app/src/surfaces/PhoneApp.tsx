@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { ArrowCounterClockwiseIcon, CameraIcon, MapPinIcon, PulseIcon, ShieldCheckIcon } from '@phosphor-icons/react'
+import { ArrowCounterClockwiseIcon, ArrowRightIcon, CameraIcon, MapPinIcon, PulseIcon, ShieldCheckIcon } from '@phosphor-icons/react'
+import { Link } from 'wouter'
 import { useSim, threatForObservation } from '../world/store'
 import { useEvents } from '../sync/events'
 import { engineNow } from '../world/clock'
@@ -148,6 +149,10 @@ function SensingCard() {
         <PulseIcon size={17} />
         This phone as a road sensor
       </div>
+      <Link href="/dashcam" className="mt-2 flex items-center justify-between bg-ink px-3 py-2.5 text-[13px] font-medium text-clay no-underline hover:bg-ink-2">
+        Dashcam AI: detect hazards with the camera
+        <ArrowRightIcon size={14} />
+      </Link>
       {m.status !== 'running' ? (
         <>
           <p className="mt-1 text-[12px] leading-relaxed text-ink-2">
