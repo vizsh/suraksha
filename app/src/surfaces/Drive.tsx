@@ -1,14 +1,15 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CaretDownIcon, EyeIcon, SpeakerHighIcon, SpeakerSlashIcon, VideoCameraIcon } from '@phosphor-icons/react'
+import { EyeIcon, SpeakerHighIcon, SpeakerSlashIcon } from '@phosphor-icons/react'
 import { useSim } from '../world/store'
 import { Contained, alertCopy, topAlert } from '../product/bits'
 import { HUD_H, HUD_W, Hud } from '../product/Car'
 import { SurfaceNav } from '../app/SurfaceNav'
-import { chime, speak, startMonitor, stopMonitor, useFatigue } from '../sense/fatigue'
+import { chime, speak, useFatigue } from '../sense/fatigue'
+import { DriverMonitor } from '../product/DriverMonitor'
 import { useEvents } from '../sync/events'
 import { engineNow, simTime } from '../world/clock'
-import { sampleAgents, EGO_PLATE, egoOffset } from '../world/scenario'
+import { sampleAgents, EGO_PLATE } from '../world/scenario'
 
 /** The cockpit: windshield HUD over the night road, voice alerts, and on-device driver monitoring. */
 export default function Drive() {
@@ -27,7 +28,7 @@ export default function Drive() {
     spoken.current.add(key)
     const c = alertCopy(top)
     // place the chime on the threat's side of the road, relative to our lane
-    const pan = (top.threat.offset - egoOffset(useSim.getState().t)) / 6
+    const pan = (top.threat.offset - world.egoLane(useSim.getState().t)) / 6
     chime(top.tier === 'critical', top.threat.kind === 'pedestrian' ? -0.8 : pan)
     speak(`${c.title}. ${c.detail.replace(' m', ' metres')}.`)
   }, [feed, voice])
@@ -53,28 +54,38 @@ export default function Drive() {
         </button>
       </div>
       <DriverMonitor />
-      <p className="absolute bottom-2 left-4 right-4 z-30 text-right text-[10px] text-clay/40">Simulated night drive on JVLR, Powai. Driver monitoring is real and stays on this device.</p>
+      <MonitorAlerts />
+      <p className="absolute bottom-2 left-4 right-4 z-30 text-right text-[10px] text-clay/40">Simulated drive: {world.scenario.short}. Driver monitoring (eyes, head and gaze) is real and stays on this device.</p>
     </main>
   )
 }
 
-/** Webcam fatigue detection. A microsleep triggers a chime, a voice prompt and a network report. */
-function DriverMonitor() {
-  const video = useRef<HTMLVideoElement>(null)
-  const canvas = useRef<HTMLCanvasElement>(null)
-  const f = useFatigue()
+/** Alerts from the in-cabin monitor: voice and chime by state, a network report for a microsleep. */
+function MonitorAlerts() {
+  const attention = useFatigue((s) => s.attention)
+  const offFor = useFatigue((s) => s.offFor)
+  const running = useFatigue((s) => s.status === 'running')
   const add = useEvents((s) => s.addObservation)
   const world = useSim((s) => s.world)!
-  const lastLevel = useRef(f.level)
+  const last = useRef(attention)
+  const lastSpoken = useRef(0)
+  const urged = useRef(false)
 
-  // react to level changes: voice for drowsy, chime + voice + network report for a microsleep
   useEffect(() => {
-    if (f.level === lastLevel.current) return
-    lastLevel.current = f.level
-    if (f.level === 'drowsy') speak('You seem tired. There is a rest stop in 2 kilometres.')
-    if (f.level === 'microsleep') {
-      chime(true)
-      speak('Eyes on the road. Pull over when it is safe.')
+    if (attention === last.current) return
+    last.current = attention
+    const now = Date.now()
+    const say = (text: string, urgent = false) => {
+      if (now - lastSpoken.current < 6000 && !urgent) return
+      lastSpoken.current = now
+      chime(urgent)
+      speak(text)
+    }
+    if (attention === 'eyes-off-road') say('Eyes on the road.')
+    if (attention === 'looking-down') say('Eyes up. Put the phone away.')
+    if (attention === 'drowsy') say('You seem tired. There is a rest stop in 2 kilometres.')
+    if (attention === 'microsleep') {
+      say('Eyes on the road. Pull over when it is safe.', true)
       const ego = sampleAgents(world, simTime()).find((a) => a.id === 'ego')!
       add({
         id: `monitor-${Date.now()}`,
@@ -88,87 +99,43 @@ function DriverMonitor() {
         how: 'Microsleep detected, nearby cars warned',
       })
     }
-  }, [f.level, add, world])
+  }, [attention, add, world])
 
-  // draw the eye contour points over the mirrored preview
+  // still away after 4 s: one urgent chime
   useEffect(() => {
-    const c = canvas.current
-    const ctx = c?.getContext('2d')
-    if (!c || !ctx) return
-    ctx.clearRect(0, 0, c.width, c.height)
-    ctx.fillStyle = f.eyesClosed ? '#e0401f' : '#7fb6e6'
-    for (const p of f.eyePoints) {
-      ctx.beginPath()
-      ctx.arc((1 - p.x) * c.width, p.y * c.height, 2.2, 0, Math.PI * 2)
-      ctx.fill()
+    if (offFor < 4) urged.current = false
+    else if (!urged.current) {
+      urged.current = true
+      chime(true)
     }
-  }, [f.eyePoints, f.eyesClosed])
+  }, [offFor])
 
-  const running = f.status === 'running'
-  // open on wide screens; on a phone it starts as a single line so the road stays visible
-  const [open, setOpen] = useState(() => typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches)
-  const word = f.level === 'microsleep' ? 'Microsleep' : f.level === 'drowsy' ? 'Drowsy' : f.face ? 'Alert' : 'No face in view'
-  const tone = f.level === 'microsleep' ? '#e0401f' : f.level === 'drowsy' ? '#d19a1c' : '#7fb6e6'
-
+  const show = running && (attention === 'eyes-off-road' || attention === 'looking-down' || attention === 'microsleep')
+  const red = attention === 'microsleep' || offFor >= 4
   return (
-    <div className="absolute left-4 top-16 z-40 w-[min(260px,calc(100vw-2rem))] bg-night-2/95 text-clay" style={{ boxShadow: 'inset 0 0 0 1px rgba(231,227,217,0.2)' }}>
-      <div className={'flex items-center gap-2 px-3 py-2 text-[13px] ' + (open ? 'border-b border-night-rule' : '')}>
-        <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex flex-1 items-center gap-2 text-left">
-          <EyeIcon size={15} />
-          Driver monitor
-          {running && <span className="ml-1 h-1.5 w-1.5 rounded-full" style={{ background: tone }} />}
-          <span className="flex-1" />
-          <CaretDownIcon size={13} className={'text-clay/60 transition-transform ' + (open ? 'rotate-180' : '')} />
-        </button>
-        {running ? (
-          <button onClick={stopMonitor} className="text-[12px] text-clay/70 hover:text-clay">
-            Stop
-          </button>
-        ) : null}
-      </div>
-      <div className={open ? 'relative aspect-[4/3] bg-black/40' : 'pointer-events-none absolute h-px w-px overflow-hidden opacity-0'}>
-        <video ref={video} className={'h-full w-full -scale-x-100 object-cover ' + (running ? 'opacity-80' : 'opacity-0')} muted playsInline />
-        <canvas ref={canvas} width={300} height={225} className="pointer-events-none absolute inset-0 h-full w-full" />
-        {!running && (
-          <div className="absolute inset-0 grid place-items-center p-4 text-center">
-            <div>
-              <button
-                onClick={() => video.current && startMonitor(video.current)}
-                disabled={f.status === 'starting'}
-                className="inline-flex items-center gap-2 bg-clay px-3 py-2 text-[13px] font-medium text-ink hover:bg-clay-deep disabled:opacity-60"
-              >
-                <VideoCameraIcon size={15} />
-                {f.status === 'starting' ? 'Loading face model' : 'Start monitoring'}
-              </button>
-              <p className="mt-2 text-[11px] leading-snug text-clay/60">{f.error ?? 'Uses your webcam. Video is processed on this device and never sent.'}</p>
-            </div>
+    <AnimatePresence>
+      {show && (
+        <motion.div
+          initial={{ opacity: 0, y: -8, scale: 0.98 }}
+          animate={{ opacity: 1, y: 0, scale: 1 }}
+          exit={{ opacity: 0, y: -6 }}
+          transition={{ duration: 0.25 }}
+          className="pointer-events-none absolute left-1/2 top-[18%] z-30 -translate-x-1/2"
+        >
+          <div
+            className="flex items-center gap-3 rounded-full px-6 py-3 text-[clamp(18px,2.2vw,28px)] font-semibold text-white"
+            style={{
+              background: red ? 'rgba(224,64,31,0.88)' : 'rgba(209,154,28,0.88)',
+              boxShadow: `0 0 0 1px rgba(255,255,255,0.25), 0 0 60px ${red ? 'rgba(224,64,31,0.55)' : 'rgba(209,154,28,0.45)'}`,
+              fontVariationSettings: "'wdth' 112",
+            }}
+          >
+            <EyeIcon size={26} weight="bold" />
+            {attention === 'microsleep' ? 'Wake up. Pull over safely' : attention === 'looking-down' ? 'Eyes up' : 'Eyes on the road'}
+            {attention !== 'microsleep' && <span className="figures text-[0.7em] font-normal opacity-85">{offFor.toFixed(1)} s</span>}
           </div>
-        )}
-      </div>
-      <AnimatePresence>
-        {running && open && (
-          <motion.dl initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-3 border-t border-night-rule text-center">
-            <div className="col-span-3 border-b border-night-rule px-3 py-2 text-left">
-              <dt className="sr-only">State</dt>
-              <dd className="text-[18px] font-semibold" style={{ color: tone, fontVariationSettings: "'wdth' 110" }}>
-                {word}
-              </dd>
-            </div>
-            <Metric label="eyes closed, 20 s" value={`${Math.round(f.perclos * 100)}%`} />
-            <Metric label="closed now" value={`${f.closedFor.toFixed(1)} s`} />
-            <Metric label="yawns, 1 min" value={String(f.yawns)} />
-          </motion.dl>
-        )}
-      </AnimatePresence>
-    </div>
-  )
-}
-
-function Metric({ label, value }: { label: string; value: string }) {
-  return (
-    <div className="border-r border-night-rule px-2 py-2 last:border-r-0">
-      <dd className="figures text-[15px]">{value}</dd>
-      <dt className="text-[10px] leading-tight text-clay/55">{label}</dt>
-    </div>
+        </motion.div>
+      )}
+    </AnimatePresence>
   )
 }

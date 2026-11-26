@@ -75,8 +75,9 @@ const dist = (a: V2, b: V2) => Math.hypot(a[0] - b[0], a[1] - b[1])
 
 export function compatible(a: HazardKind, b: HazardKind) {
   if (a === b) return true
-  if (a === 'unknown') return STATIC_OBSTACLE.has(b)
-  if (b === 'unknown') return STATIC_OBSTACLE.has(a)
+  // a swerve cluster is something in the road: a static obstacle, or an animal standing in it
+  if (a === 'unknown') return STATIC_OBSTACLE.has(b) || b === 'animal'
+  if (b === 'unknown') return STATIC_OBSTACLE.has(a) || a === 'animal'
   return false
 }
 

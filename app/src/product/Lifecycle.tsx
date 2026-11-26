@@ -1,3 +1,4 @@
+import { citizenReport, focusPoint } from '../world/scenario'
 import type { ThreatState } from '../engine/types'
 import type { World } from '../world/scenario'
 import { threatForObservation, useSim } from '../world/store'
@@ -14,11 +15,11 @@ const ORDER: ThreatState[] = ['noticed', 'potential', 'confirmed', 'resolved']
 /** Same area, same scale, four moments: how one report becomes a confirmed threat. The live plate follows the engine. */
 export function LifecyclePlates({ world }: { world: World }) {
   const threats = useSim((s) => s.threats)
-  const th = threatForObservation(threats, 'script:barricade-citizen')
+  const def = citizenReport(world)
+  const th = def ? threatForObservation(threats, `script:${def.key}`) : undefined
   const now = th?.state
   const reached = now ? ORDER.indexOf(now) : -1
-  const def = world.script.find((o) => o.key === 'barricade-citizen')!
-  const [cx, cz] = def.pos
+  const [cx, cz] = def?.pos ?? focusPoint(world)
   return (
     <div className="grid grid-cols-2 gap-x-5 gap-y-8 md:grid-cols-4">
       {PLATES.map((p, i) => {

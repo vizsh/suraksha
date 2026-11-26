@@ -12,6 +12,7 @@ export interface ClockState {
   paused: boolean
   pausedAt: number // engine ms frozen while paused
   stamp: number // wall ms when this state was set; newest wins
+  scenario?: string // which scenario every device plays (scenarios.ts); absent means the default
 }
 
 const KEY = 'suraksha.clock'
@@ -92,7 +93,7 @@ export function seek(t: number) {
   applyClock(
     state.paused
       ? { ...state, pausedAt: target, stamp: now }
-      : { offsetMs: now - target, paused: false, pausedAt: 0, stamp: now },
+      : { offsetMs: now - target, paused: false, pausedAt: 0, stamp: now, scenario: state.scenario },
   )
 }
 
@@ -104,10 +105,22 @@ export function pause() {
 export function play() {
   if (!state.paused) return
   const now = Date.now()
-  applyClock({ offsetMs: now - state.pausedAt, paused: false, pausedAt: 0, stamp: now })
+  applyClock({ offsetMs: now - state.pausedAt, paused: false, pausedAt: 0, stamp: now, scenario: state.scenario })
 }
 
 /** Back to the shared wall-clock timeline that every device follows by default. */
 export function resync() {
-  applyClock({ offsetMs: 0, paused: false, pausedAt: 0, stamp: Date.now() })
+  applyClock({ offsetMs: 0, paused: false, pausedAt: 0, stamp: Date.now(), scenario: state.scenario })
+}
+
+/** Switch every device to another scenario, from its first second. */
+export function setScenario(id: string) {
+  const now = Date.now()
+  // start the loop now: engine time = now - offset lands on a multiple of the loop length
+  const offsetMs = now - Math.ceil(now / LOOP_MS) * LOOP_MS
+  applyClock({ offsetMs, paused: false, pausedAt: 0, stamp: now, scenario: id })
+}
+
+export function currentScenario() {
+  return state.scenario
 }

@@ -5,7 +5,6 @@ import { useTexture } from '@react-three/drei'
 import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import type { World } from '../../world/scenario'
-import { BARRICADE_S, POTHOLE_S } from '../../world/scenario'
 import { onAnyRoad, roadsidePoints } from '../geometry'
 import { shelterSpots } from './Shelters'
 
@@ -215,7 +214,7 @@ export function BarricadeSet({ world, night }: { world: World; night: boolean })
   const metal = useSurface('metal')
   const items = useMemo(() => {
     const out: { kind: 'water' | 'frame' | 'cone'; x: number; z: number; h: number }[] = []
-    const base = world.sStart + BARRICADE_S
+    const base = world.sStart + (world.marks.barricade ?? 0)
     // water-filled barriers closing lane 1 on a diagonal, a metal frame barricade, cones leading in
     for (let i = 0; i < 4; i++) {
       const p = world.path.at(base - 1 + i * 2.1, -5.4 + i * 0.75)
@@ -299,7 +298,7 @@ function potholeGeometry(r: number, seed: number) {
 }
 
 export function Pothole({ world }: { world: World }) {
-  const p = useMemo(() => world.path.at(world.sStart + POTHOLE_S, 0), [world])
+  const p = useMemo(() => world.path.at(world.sStart + (world.marks.pothole ?? 0), 0), [world])
   const rim = useMemo(() => potholeGeometry(0.85, 1.3), [])
   const hole = useMemo(() => potholeGeometry(0.66, 1.3), [])
   const water = useMemo(() => potholeGeometry(0.5, 2.1), [])

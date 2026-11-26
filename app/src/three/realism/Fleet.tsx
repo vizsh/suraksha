@@ -8,7 +8,7 @@ import { sampleAgents, type Agent, type World } from '../../world/scenario'
 import { simTime } from '../../world/clock'
 import { PAINTS, TAIL_CRUISE, makeMaterials, vehicleModels, type PartKind, type VariantKey } from './vehicles'
 
-const MAX: Record<VariantKey, number> = { hatch: 40, sedan: 30, suv: 24, bus: 4, auto: 20, bike: 20 }
+const MAX: Record<VariantKey, number> = { hatch: 40, sedan: 30, suv: 24, bus: 4, auto: 20, bike: 20, cow: 6, cowLying: 6 }
 const BEST_RED = '#c8261f'
 
 function hashStr(s: string) {
@@ -21,6 +21,7 @@ export function variantOf(a: Agent): VariantKey | null {
   if (a.kind === 'bus') return 'bus'
   if (a.kind === 'auto') return 'auto'
   if (a.kind === 'bike') return 'bike'
+  if (a.kind === 'cow') return a.lying ? 'cowLying' : 'cow'
   if (a.kind !== 'car') return null
   if (a.role === 'ego') return 'hatch'
   const h = hashStr(a.id)
@@ -54,12 +55,12 @@ export function Fleet({ world, night = false, rings = true, hide }: { world: Wor
       tmp.rotation.set(0, a.heading, 0)
       tmp.scale.set(1, 1, 1)
       tmp.updateMatrix()
-      const paint = v === 'bus' ? BEST_RED : a.role === 'ego' ? '#d9dde0' : PAINTS[Math.floor(hashStr(a.id + 'p') * PAINTS.length)]
+      const paint = a.paint ?? (v === 'bus' ? BEST_RED : a.role === 'ego' ? '#d9dde0' : PAINTS[Math.floor(hashStr(a.id + 'p') * PAINTS.length)])
       for (const part of Object.keys(models[v]) as PartKind[]) {
         const m = refs.current[`${v}:${part}`]
         if (!m) continue
         m.setMatrixAt(i, tmp.matrix)
-        if (part === 'paint') m.setColorAt(i, col.set(paint))
+        if (part === 'paint' || part === 'hide') m.setColorAt(i, col.set(paint))
         else if (part === 'tail') m.setColorAt(i, col.setScalar(a.brake ? 1 : TAIL_CRUISE))
       }
       if (rings && a.connected && ringRef.current && rc < 64) {
@@ -97,7 +98,7 @@ export function Fleet({ world, night = false, rings = true, hide }: { world: Wor
               if (!r) return
               refs.current[`${v}:${part}`] = r
               // per-instance colour from the start, so the shader is compiled with it before the first frame
-              if ((part === 'paint' || part === 'tail') && !r.instanceColor) r.setColorAt(0, new THREE.Color(1, 1, 1))
+              if ((part === 'paint' || part === 'tail' || part === 'hide') && !r.instanceColor) r.setColorAt(0, new THREE.Color(1, 1, 1))
             }}
             args={[geo, mats[part], MAX[v]]}
             castShadow={part === 'paint' || part === 'trim' || part === 'accent'}

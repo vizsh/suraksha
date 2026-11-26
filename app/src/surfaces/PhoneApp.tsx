@@ -1,10 +1,10 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
-import { ArrowCounterClockwiseIcon, ArrowRightIcon, CameraIcon, MapPinIcon, PulseIcon, ShieldCheckIcon } from '@phosphor-icons/react'
+import { ArrowCounterClockwiseIcon, ArrowRightIcon, BatteryHighIcon, CameraIcon, CellSignalFullIcon, MapPinIcon, PulseIcon, ShieldCheckIcon } from '@phosphor-icons/react'
 import { Link } from 'wouter'
 import { useSim, threatForObservation } from '../world/store'
 import { useEvents } from '../sync/events'
 import { engineNow } from '../world/clock'
-import { DriveScreen, StepList, TabBar, useReportSteps } from '../product/Phone'
+import { CARD, DriveScreen, StepList, TabBar, useReportSteps } from '../product/Phone'
 import { MapOverlay, MiniMap, STATE, StateGlyph, egoCenter, stateLine } from '../product/bits'
 import { SurfaceNav } from '../app/SurfaceNav'
 import { onBump, simulateBump, startMotion, useMotion } from '../sense/motion'
@@ -19,24 +19,51 @@ export default function PhoneApp() {
   const [tab, setTab] = useState(0)
   useBumpReporter()
   return (
-    <main className="min-h-[100dvh] bg-clay-deep md:grid md:place-items-center md:py-10">
+    <main className="min-h-[100dvh] bg-[radial-gradient(120%_80%_at_50%_0%,#e9e5db_0%,#d8d2c4_100%)] md:grid md:place-items-center md:py-10">
       <div className="hidden md:block">
         <SurfaceNav />
       </div>
-      <div
-        className="relative mx-auto h-[100dvh] w-full max-w-[430px] overflow-hidden bg-clay md:h-[min(844px,calc(100dvh-5rem))] md:max-w-[390px] md:rounded-[40px]"
-        style={{ boxShadow: '0 40px 80px -30px rgba(40,34,26,0.45), 0 0 0 10px #1c2226' }}
-      >
-        <OfflineBanner />
-        <div className="h-full overflow-y-auto pb-24 pt-[env(safe-area-inset-top)]">
-          {tab === 0 && <DriveTab />}
-          {tab === 1 && <MapTab />}
-          {tab === 2 && <ReportTab />}
-          {tab === 3 && <YouTab />}
+      {/* on a desktop: a titanium phone with side buttons; on a phone: the app itself, full screen */}
+      <div className="relative mx-auto md:h-[min(852px,calc(100dvh-5rem))] md:w-[min(412px,calc((100dvh-5rem)*0.4836))] md:rounded-[62px] md:bg-[linear-gradient(145deg,#8f949a_0%,#5c6167_18%,#2d3135_50%,#6b7076_82%,#a4a9ae_100%)] md:p-[11px] md:shadow-[0_50px_90px_-40px_rgba(30,26,20,0.65),0_0_0_1px_rgba(0,0,0,0.35)]">
+        <span className="absolute -left-[3px] top-[150px] hidden h-[34px] w-[3px] rounded-l bg-[#5c6167] md:block" />
+        <span className="absolute -left-[3px] top-[205px] hidden h-[62px] w-[3px] rounded-l bg-[#5c6167] md:block" />
+        <span className="absolute -left-[3px] top-[280px] hidden h-[62px] w-[3px] rounded-l bg-[#5c6167] md:block" />
+        <span className="absolute -right-[3px] top-[230px] hidden h-[96px] w-[3px] rounded-r bg-[#5c6167] md:block" />
+        <div className="relative mx-auto h-[100dvh] w-full max-w-[430px] overflow-hidden bg-[#efece5] md:h-full md:max-w-none md:rounded-[52px] md:ring-[3px] md:ring-black">
+          <StatusBar />
+          <OfflineBanner />
+          <div className="no-scrollbar h-full overflow-y-auto pb-28 pt-[env(safe-area-inset-top)] md:pt-[52px]">
+            {tab === 0 && <DriveTab />}
+            {tab === 1 && <MapTab />}
+            {tab === 2 && <ReportTab />}
+            {tab === 3 && <YouTab />}
+          </div>
+          <TabBar active={tab} onChange={setTab} />
+          <span className="pointer-events-none absolute bottom-2 left-1/2 z-40 hidden h-[5px] w-[134px] -translate-x-1/2 rounded-full bg-ink/80 md:block" />
         </div>
-        <TabBar active={tab} onChange={setTab} />
       </div>
     </main>
+  )
+}
+
+/** The phone's own status bar, drawn only in the desktop frame (a real phone has its own). */
+function StatusBar() {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    const id = setInterval(() => setNow(new Date()), 20_000)
+    return () => clearInterval(id)
+  }, [])
+  const time = now.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' })
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-0 z-40 hidden h-[52px] items-center justify-between px-8 text-[15px] font-semibold text-ink md:flex">
+      <span style={{ fontVariantNumeric: 'tabular-nums' }}>{time}</span>
+      <span className="absolute left-1/2 top-[11px] h-[34px] w-[122px] -translate-x-1/2 rounded-full bg-black" />
+      <span className="flex items-center gap-1.5">
+        <CellSignalFullIcon size={17} weight="fill" />
+        <span className="text-[12px] font-bold">5G</span>
+        <BatteryHighIcon size={24} weight="fill" />
+      </span>
+    </div>
   )
 }
 
@@ -100,7 +127,7 @@ function useBumpReporter() {
 function DriveTab() {
   const world = useSim((s) => s.world)!
   return (
-    <DriveScreen world={world}>
+    <DriveScreen world={world} live3d>
       <SensingCard />
     </DriveScreen>
   )
@@ -144,12 +171,12 @@ function SensingCard() {
   const threats = useSim((s) => s.threats)
   const mine = obs.filter((o) => o.source === 'imu' && o.sourceId === deviceId).slice(-3).reverse()
   return (
-    <section className="mt-5 border-t border-rule pt-4">
+    <section className={'mt-4 p-4 ' + CARD}>
       <div className="flex items-center gap-2 text-[15px] font-semibold" style={{ fontVariationSettings: "'wdth' 108" }}>
         <PulseIcon size={17} />
         This phone as a road sensor
       </div>
-      <Link href="/dashcam" className="mt-2 flex items-center justify-between bg-ink px-3 py-2.5 text-[13px] font-medium text-clay no-underline hover:bg-ink-2">
+      <Link href="/dashcam" className="mt-3 flex items-center justify-between rounded-2xl bg-ink px-4 py-3 text-[13px] font-medium text-clay no-underline hover:bg-ink-2">
         Dashcam AI: detect hazards with the camera
         <ArrowRightIcon size={14} />
       </Link>
@@ -164,11 +191,11 @@ function SensingCard() {
                 watchLocation()
                 void startMotion()
               }}
-              className="bg-ink px-3 py-2 text-[13px] font-medium text-clay hover:bg-ink-2"
+              className="rounded-full bg-ink px-4 py-2 text-[13px] font-medium text-clay hover:bg-ink-2"
             >
               Start sensing
             </button>
-            <button onClick={() => simulateBump()} className="border border-ink/30 px-3 py-2 text-[13px] hover:bg-clay-deep">
+            <button onClick={() => simulateBump()} className="rounded-full px-4 py-2 text-[13px] ring-1 ring-ink/20 hover:bg-black/[0.04]">
               Simulate a bump
             </button>
           </div>
@@ -181,10 +208,10 @@ function SensingCard() {
       ) : (
         <>
           <p className="mt-1 text-[12px] text-ink-2">Shake the phone, or drive over a bump. Anything above the dashed line is reported.</p>
-          <div className="mt-2 bg-clay-deep/70 px-2 py-1">
+          <div className="mt-2 rounded-2xl bg-[#f6f4ef] px-2 py-1 ring-1 ring-black/[0.05]">
             <Trace values={m.trace} threshold={m.threshold} />
           </div>
-          <button onClick={() => simulateBump()} className="mt-2 border border-ink/30 px-3 py-1.5 text-[12px] hover:bg-clay-deep">
+          <button onClick={() => simulateBump()} className="mt-2 rounded-full px-3.5 py-1.5 text-[12px] ring-1 ring-ink/20 hover:bg-black/[0.04]">
             Simulate a bump
           </button>
         </>
@@ -239,18 +266,20 @@ function MapTab() {
   }
   return (
     <div>
-      <div className="relative aspect-square overflow-hidden">
+      <div className="relative mx-3 aspect-square overflow-hidden rounded-[30px] ring-1 ring-black/[0.06]">
         <MiniMap world={world} center={center} radius={420} className="absolute inset-0 h-full w-full" />
         <MapOverlay world={world} center={center} radius={420} />
       </div>
-      <div className="px-5 pt-4">
-        <div className="text-[22px] font-semibold" style={{ fontVariationSettings: "'wdth' 110" }}>
+      <div className="px-4 pt-5">
+        <div className="px-1 text-[24px] font-semibold tracking-tight" style={{ fontVariationSettings: "'wdth' 108" }}>
           Around you
         </div>
-        <ul className="mt-2 divide-y divide-rule/70">
+        <ul className="mt-3 space-y-2">
           {list.map((th) => (
-            <li key={th.id} className="flex items-center gap-3 py-2.5">
-              <StateGlyph state={th.state} size={16} />
+            <li key={th.id} className={'flex items-center gap-3 px-3.5 py-3 ' + CARD}>
+              <span className="grid h-9 w-9 shrink-0 place-items-center rounded-2xl" style={{ background: STATE[th.state].color + '1f' }}>
+                <StateGlyph state={th.state} size={16} />
+              </span>
               <span className="flex-1 text-[14px] leading-tight">
                 {th.state === 'potential' || th.state === 'noticed' ? `Possible ${th.label.toLowerCase()}` : th.label}
                 <span className="block text-[11px]" style={{ color: STATE[th.state].text }}>
@@ -261,7 +290,7 @@ function MapTab() {
                 gone.has(th.id) ? (
                   <span className="text-[11px] text-live">Noted</span>
                 ) : (
-                  <button onClick={() => notThere(th)} className="border border-ink/25 px-2 py-1 text-[11px] hover:bg-clay-deep">
+                  <button onClick={() => notThere(th)} className="shrink-0 rounded-full px-2.5 py-1 text-[11px] ring-1 ring-ink/20 hover:bg-black/[0.04]">
                     Not there now
                   </button>
                 )
@@ -360,7 +389,7 @@ function ReportTab() {
 
   return (
     <div className="px-5 pt-6">
-      <div className="text-[24px] font-semibold leading-tight" style={{ fontVariationSettings: "'wdth' 112" }}>
+      <div className="text-[28px] font-semibold leading-tight tracking-tight" style={{ fontVariationSettings: "'wdth' 108" }}>
         Report a hazard
       </div>
       <p className="mt-1 text-[13px] text-ink-2">Your report warns drivers at once, as "possible", until another source agrees.</p>
@@ -372,7 +401,7 @@ function ReportTab() {
             key={k.kind}
             onClick={() => setKind(k.kind)}
             aria-pressed={kind === k.kind}
-            className={'px-3 py-1.5 text-[13px] ' + (kind === k.kind ? 'bg-ink text-clay' : 'bg-clay-deep text-ink hover:bg-clay-shade/60')}
+            className={'rounded-full px-3.5 py-1.5 text-[13px] transition-colors ' + (kind === k.kind ? 'bg-ink text-clay' : 'bg-white/70 text-ink ring-1 ring-black/[0.06] hover:bg-white')}
           >
             {k.label}
           </button>
@@ -382,9 +411,9 @@ function ReportTab() {
       <h3 className="mt-5 text-[13px] font-semibold">Photo</h3>
       <label className="mt-2 flex cursor-pointer items-center gap-3">
         {thumb ? (
-          <img src={thumb} alt="Your photo" className="h-20 w-20 object-cover" />
+          <img src={thumb} alt="Your photo" className="h-20 w-20 rounded-2xl object-cover" />
         ) : (
-          <span className="grid h-20 w-20 place-items-center bg-clay-deep text-ink-3">
+          <span className="grid h-20 w-20 place-items-center rounded-2xl bg-white/70 text-ink-3 ring-1 ring-black/[0.06]">
             <CameraIcon size={24} />
           </span>
         )}
@@ -404,7 +433,7 @@ function ReportTab() {
       <h3 className="mt-5 text-[13px] font-semibold">Where</h3>
       {place && (
         <>
-          <div ref={mapRef} onClick={moveTo} className="relative mt-2 aspect-square w-full cursor-crosshair overflow-hidden">
+          <div ref={mapRef} onClick={moveTo} className="relative mt-2 aspect-square w-full cursor-crosshair overflow-hidden rounded-[26px] ring-1 ring-black/[0.06]">
             <MiniMap world={world} center={place.pos} radius={R} route={false} className="absolute inset-0 h-full w-full" />
             <span className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-full text-confirmed">
               <MapPinIcon size={30} weight="fill" />
@@ -426,7 +455,7 @@ function ReportTab() {
       <button
         onClick={send}
         disabled={!kind || !place}
-        className="mt-5 w-full bg-confirmed-text py-3 text-[15px] font-medium text-[#f6efe9] hover:bg-confirmed disabled:opacity-40"
+        className="mt-5 w-full rounded-2xl bg-confirmed-text py-3.5 text-[15px] font-semibold text-[#f6efe9] shadow-[0_14px_28px_-14px_rgba(180,50,20,0.8)] hover:bg-confirmed disabled:opacity-40 disabled:shadow-none"
       >
         Send report
       </button>
@@ -439,12 +468,12 @@ function SentStatus({ obsId, kind, onAgain }: { obsId: string; kind: HazardKind;
   const { steps, stateWord } = useReportSteps(obsId, `a ${word}`)
   return (
     <div className="px-5 pt-6">
-      <div className="text-[24px] font-semibold leading-tight" style={{ fontVariationSettings: "'wdth' 112" }}>
+      <div className="text-[28px] font-semibold leading-tight tracking-tight" style={{ fontVariationSettings: "'wdth' 108" }}>
         Report sent
       </div>
       <p className="mt-1 text-[13px] text-ink-2">The network's current verdict: {stateWord.toLowerCase()}. This page updates as other cars and people add evidence.</p>
       <StepList steps={steps} />
-      <button onClick={onAgain} className="mt-6 flex items-center gap-2 border border-ink/30 px-3 py-2 text-[13px] hover:bg-clay-deep">
+      <button onClick={onAgain} className="mt-6 flex items-center gap-2 rounded-full px-4 py-2 text-[13px] ring-1 ring-ink/20 hover:bg-black/[0.04]">
         <ArrowCounterClockwiseIcon size={15} />
         Report something else
       </button>
@@ -464,22 +493,29 @@ function YouTab() {
   const points = mine.length * 20 + confirmed * 50
   return (
     <div className="px-5 pt-6">
-      <div className="text-[24px] font-semibold leading-tight" style={{ fontVariationSettings: "'wdth' 112" }}>
+      <div className="text-[28px] font-semibold leading-tight tracking-tight" style={{ fontVariationSettings: "'wdth' 108" }}>
         Street Guardian
       </div>
-      <div className="mt-1 flex items-center gap-1.5 text-[13px] text-live">
-        <ShieldCheckIcon size={16} weight="fill" />
-        {points} points, {confirmed} confirmed
+      <div className={'mt-3 flex items-center gap-4 p-4 ' + CARD}>
+        <span className="grid h-14 w-14 place-items-center rounded-2xl bg-live text-clay shadow-[0_10px_24px_-12px_rgba(31,111,178,0.9)]">
+          <ShieldCheckIcon size={28} weight="fill" />
+        </span>
+        <span className="leading-tight">
+          <span className="block text-[26px] font-semibold" style={{ fontVariantNumeric: 'tabular-nums' }}>
+            {points}
+          </span>
+          <span className="text-[12px] text-ink-3">points · {confirmed} confirmed</span>
+        </span>
       </div>
       <p className="mt-2 text-[12px] leading-relaxed text-ink-2">20 points per report, 50 more when the network confirms it. Points redeem as service credit at a dealer (concept).</p>
 
       <h3 className="mt-5 text-[13px] font-semibold">Your reports</h3>
-      <ul className="mt-2 divide-y divide-rule/70">
-        {mine.length === 0 && <li className="py-3 text-[13px] text-ink-3">Nothing yet. Report a hazard or turn on sensing in Drive.</li>}
+      <ul className="mt-2 space-y-2">
+        {mine.length === 0 && <li className={'px-4 py-4 text-[13px] text-ink-3 ' + CARD}>Nothing yet. Report a hazard or turn on sensing in Drive.</li>}
         {mine.map((o) => {
           const th = threatForObservation(threats, o.id)
           return (
-            <li key={o.id} className="flex items-center gap-3 py-2.5">
+            <li key={o.id} className={'flex items-center gap-3 px-3.5 py-3 ' + CARD}>
               {th ? <StateGlyph state={th.state} size={15} /> : <span className="w-[15px]" />}
               <span className="flex-1 text-[13px] leading-tight">
                 {hazardLabel(o.kind)}
@@ -499,7 +535,7 @@ function YouTab() {
         <div>{remote === 'on' ? 'Linked: reports reach other devices' : 'Not linked: reports stay in this browser'}</div>
         <div className="text-ink-3">Clock {Math.round((now % 48000) / 1000)} s into the shared scenario</div>
       </dl>
-      <button onClick={reset} className="mt-4 border border-ink/30 px-3 py-1.5 text-[12px] hover:bg-clay-deep">
+      <button onClick={reset} className="mt-4 rounded-full px-3.5 py-1.5 text-[12px] ring-1 ring-ink/20 hover:bg-black/[0.04]">
         Clear all demo reports
       </button>
     </div>

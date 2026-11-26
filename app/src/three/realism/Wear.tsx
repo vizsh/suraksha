@@ -3,7 +3,7 @@
 // sets laid just above the asphalt and under the lane paint. Kept clear of the scripted pothole.
 import { useMemo } from 'react'
 import * as THREE from 'three'
-import { POTHOLE_S, type World } from '../../world/scenario'
+import type { World } from '../../world/scenario'
 
 function rng(seed: number) {
   let a = seed >>> 0
@@ -126,16 +126,17 @@ function layout(world: World) {
   const out: Record<Kind, THREE.Matrix4[]> = { patch: [], seam: [], manhole: [], stain: [] }
   const up = new THREE.Vector3(0, 1, 0)
   const place = (k: Kind, s: number, off: number, w: number, l: number, extraYaw = 0) => {
-    if (Math.abs(s - (world.sStart + POTHOLE_S)) < 7) return
+    if (world.marks.pothole !== undefined && Math.abs(s - (world.sStart + world.marks.pothole)) < 7) return
     const p = world.path.at(s, off)
     out[k].push(new THREE.Matrix4().compose(new THREE.Vector3(p.x, 0.06, p.z), new THREE.Quaternion().setFromAxisAngle(up, p.heading + extraYaw), new THREE.Vector3(w, 1, l)))
   }
   const from = world.sStart - 160
   const to = world.sStart + 760
-  const lanes = [-3.5, 0, 3.5]
-  for (let s = from + r() * 30; s < to; s += 30 + r() * 45) place('patch', s, lanes[Math.floor(r() * 3)] + (r() - 0.5), 1.8 + r() * 2.6, 2.5 + r() * 4)
-  for (let s = from + r() * 20; s < to; s += 22 + r() * 30) place('seam', s, (r() - 0.5) * 2, 0.5, 14 + r() * 2, Math.PI / 2 + (r() - 0.5) * 0.12)
-  for (let s = from + r() * 40; s < to; s += 55 + r() * 40) place('manhole', s, r() < 0.5 ? -1.75 : 1.75, 0.95, 0.95, r() * Math.PI)
+  const lanes = [...world.scenario.traffic.lanes, ...(world.scenario.traffic.oncoming ?? []).map((o) => -o)]
+  const w = world.halfWidth * 2 - 1
+  for (let s = from + r() * 30; s < to; s += 30 + r() * 45) place('patch', s, lanes[Math.floor(r() * lanes.length)] + (r() - 0.5), 1.8 + r() * 2.6, 2.5 + r() * 4)
+  for (let s = from + r() * 20; s < to; s += 22 + r() * 30) place('seam', s, (r() - 0.5) * 2, 0.5, w - 1 + r() * 2, Math.PI / 2 + (r() - 0.5) * 0.12)
+  for (let s = from + r() * 40; s < to; s += 55 + r() * 40) place('manhole', s, (r() < 0.5 ? -1 : 1) * Math.min(1.75, world.halfWidth / 3), 0.95, 0.95, r() * Math.PI)
   for (const lane of lanes) for (let s = from + r() * 10; s < to; s += 5 + r() * 12) place('stain', s, lane + (r() - 0.5) * 0.4, 0.9 + r() * 0.6, 1.6 + r() * 1.6)
   return out
 }

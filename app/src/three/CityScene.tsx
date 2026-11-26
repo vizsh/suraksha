@@ -4,7 +4,7 @@ import { Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
 import { buildBuildings, buildKerbGap, buildLanePaint, buildRoads } from './geometry'
 import { makeEdgeMaterial, makeWaveUniforms, withWave } from './materials'
-import { arcsAt, BUS_S, sampleAgents, waveRadius, type World } from '../world/scenario'
+import { arcsAt, sampleAgents, waveRadius, type World } from '../world/scenario'
 import { simTime } from '../world/clock'
 import { useSim, type ThreatView } from '../world/store'
 import { Fleet } from './realism/Fleet'
@@ -21,17 +21,26 @@ const GoogleTiles = lazy(() => import('./realism/GoogleTiles'))
 import { Rain } from './realism/Rain'
 import { NearMissHeat } from './realism/Heat'
 import { Lidar } from './Lidar'
+import { Hazards } from './realism/Hazards'
 
 export type SheetMode = 'day' | 'night'
 
-// Built once per world and shared by every view on the page (geometry can be drawn by any renderer).
+// The city (buildings, roads) is built once per map; the route's paint once per scenario.
+// Both are shared by every view on the page (geometry can be drawn by any renderer).
+const cityCache = new WeakMap<World['data'], ReturnType<typeof buildBuildings> & ReturnType<typeof buildRoads>>()
 const geoCache = new WeakMap<World, ReturnType<typeof makeCityGeometry>>()
 function makeCityGeometry(world: World) {
-  const b = buildBuildings(world.data)
-  const roads = buildRoads(world.data)
-  const lanes = buildLanePaint(world.path, world.sStart - 160, world.sStart + 760)
-  const gap = buildKerbGap(world.path, world.sStart + BUS_S + 14, world.sStart + BUS_S + 110, -8.4)
-  return { ...b, ...roads, lanes, gap }
+  let city = cityCache.get(world.data)
+  if (!city) {
+    city = { ...buildBuildings(world.data), ...buildRoads(world.data) }
+    cityCache.set(world.data, city)
+  }
+  const paint = world.scenario.paint
+  const lanes = buildLanePaint(world.path, world.sStart - 160, world.sStart + 760, paint?.dashes, paint?.edges)
+  // the footpath gap past the bus stop that makes people cross there
+  const bus = world.marks.bus
+  const gap = bus && world.marks.crossings.length ? buildKerbGap(world.path, world.sStart + bus.s + 14, world.sStart + bus.s + 110, -(world.halfWidth + 0.4)) : null
+  return { ...city, lanes, gap }
 }
 function cityGeometry(world: World) {
   let g = geoCache.get(world)
@@ -125,7 +134,7 @@ export function CityScene({
       )}
       {lidar ? null : google ? (
         <Suspense fallback={null}>
-          <GoogleTiles data={world.data} calibrateAt={[world.path.at(world.sStart + BUS_S, 0).x, world.path.at(world.sStart + BUS_S, 0).z]} />
+          <GoogleTiles data={world.data} calibrateAt={[world.path.at(world.focusS, 0).x, world.path.at(world.focusS, 0).z]} />
         </Suspense>
       ) : (
         <>
@@ -150,16 +159,19 @@ export function CityScene({
       <mesh geometry={geo.lanes.solid} visible={!lidar}>
         <meshStandardMaterial polygonOffset polygonOffsetFactor={-6} polygonOffsetUnits={-6} color="#f4f2ec" roughness={0.6} emissive="#ffffff" emissiveIntensity={night ? 0.06 : 0} />
       </mesh>
-      <mesh geometry={geo.gap} position-y={0.02}>
-        <meshBasicMaterial color="#b4562b" />
-      </mesh>
+      {geo.gap && (
+        <mesh geometry={geo.gap} position-y={0.02}>
+          <meshBasicMaterial color="#b4562b" />
+        </mesh>
+      )}
+      {!lidar && <Hazards world={world} night={night} />}
       {isolines && <RiskTerraces world={world} />}
       <Fleet world={world} night={night} rings={!driver} hide={driver ? waveFrom : undefined} />
       <Suspense fallback={null}>
         <Walkers world={world} xray={xray} ambient={!driver || true} />
-        <BarricadeSet world={world} night={night} />
+        {world.marks.barricade !== undefined && <BarricadeSet world={world} night={night} />}
       </Suspense>
-      <Pothole world={world} />
+      {world.marks.pothole !== undefined && <Pothole world={world} />}
       {rain && <Rain night={night} />}
       {heat && <NearMissHeat world={world} />}
       {fans && !lidar && <SensorFans world={world} />}

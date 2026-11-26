@@ -17,7 +17,7 @@ import {
 import { decay, fuse, RELIABILITY, THRESHOLD, clusterKind } from '../engine/fusion'
 import { implicitObstacles } from '../engine/implicit'
 import type { HazardKind, Manoeuvre, Observation, SourceKind } from '../engine/types'
-import type { World } from '../world/scenario'
+import { focusPoint, type World } from '../world/scenario'
 import { loadSatellite } from '../three/realism/Ground'
 import { STATE, StateGlyph } from './bits'
 
@@ -61,7 +61,8 @@ function useSatelliteCrop(world: World, center: [number, number]) {
 }
 
 export function Playground({ world }: { world: World }) {
-  const center = useMemo(() => world.script.find((o) => o.key === 'barricade-citizen')!.pos, [world])
+  // the sandbox is about one spot: the night story's barricade, or this scenario's focus
+  const center = useMemo(() => world.script.find((o) => o.key === 'barricade-citizen')?.pos ?? focusPoint(world), [world])
   const sat = useSatelliteCrop(world, center)
   const [obs, setObs] = useState<Observation[]>([])
   const [man, setMan] = useState<Manoeuvre[]>([])

@@ -117,6 +117,8 @@ export function simulateTraffic(
   junctions: Junction[],
   scripted: { s: Float32Array; lane: (t: number) => number }[],
   loop: number,
+  /** lanes closed by something stopped in them (a crash), until a time in the loop */
+  blocks: { s: number; lane: number; until: number }[] = [],
 ): AmbientCar[] {
   const n = Math.ceil(loop / DT) + 1
   const WARM = 30 // seconds simulated before the loop starts, so queues are already formed
@@ -186,6 +188,17 @@ export function simulateTraffic(
           if (d < 200 && d < gap) {
             gap = d
             vLead = (sc.s[step + 1] - sNow) / DT
+          }
+        }
+      }
+      // a closed lane: queue behind it until it is cleared
+      if (c.p === path) {
+        for (const b of blocks) {
+          if (t >= b.until || Math.abs(b.lane - c.lane) > 1.6) continue
+          const d = ahead(c.s, b.s, L) - LEN / 2
+          if (d < 400 && d < gap) {
+            gap = Math.max(0.1, d)
+            vLead = 0
           }
         }
       }

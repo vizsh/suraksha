@@ -2,15 +2,17 @@
 // black on every cut. Everything else on the page is hidden so the screen can be recorded as is.
 import { useEffect, useRef, useState } from "react";
 import { AnimatePresence, motion } from "motion/react";
-import { SHOTS, shotAt, useFilm } from "../world/film";
+import { shotAt, useFilm } from "../world/film";
+import { useSim } from "../world/store";
 import { LOOP, simTime } from "../world/clock";
 
-const CUTS = [...SHOTS.map((s) => s.from), LOOP];
 const BAR = "max(64px, calc((100dvh - 100vw / 2.39) / 2))";
 
 export function FilmOverlay() {
+  const shots = useSim((s) => s.world!.scenario.shots);
+  const CUTS = shots.map((s) => s.from).concat(LOOP);
   const stop = useFilm((s) => s.stop);
-  const [beat, setBeat] = useState(() => shotAt(simTime()));
+  const [beat, setBeat] = useState(() => shotAt(simTime(), shots));
   const [idle, setIdle] = useState(false);
   const dip = useRef<HTMLDivElement>(null);
   const clock = useRef<HTMLSpanElement>(null);
@@ -25,7 +27,7 @@ export function FilmOverlay() {
         dip.current.style.opacity = String(Math.max(0, 1 - d / 0.3));
       if (clock.current)
         clock.current.textContent = `00:${t.toFixed(1).padStart(4, "0")}`;
-      const b = shotAt(t);
+      const b = shotAt(t, shots);
       const key = b.i + b.sub;
       if (key !== last.current) {
         last.current = key;
@@ -35,7 +37,8 @@ export function FilmOverlay() {
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [shots]);
 
   useEffect(() => {
     let timer = 0;
@@ -96,7 +99,7 @@ export function FilmOverlay() {
         <div className="flex h-full items-center gap-6 px-5 md:px-8">
           <span className="figures hidden shrink-0 self-center text-[11px] text-white/40 sm:block">
             {String(beat.i + 1).padStart(2, "0")} /{" "}
-            {String(SHOTS.length).padStart(2, "0")}
+            {String(shots.length).padStart(2, "0")}
           </span>
           <div className="min-w-0 flex-1">
             <AnimatePresence mode="wait">

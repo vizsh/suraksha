@@ -5,9 +5,9 @@ import * as THREE from 'three'
 import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js'
 import { RoundedBoxGeometry } from 'three/examples/jsm/geometries/RoundedBoxGeometry.js'
 
-export type PartKind = 'paint' | 'glass' | 'tyre' | 'rim' | 'head' | 'tail' | 'trim' | 'accent' | 'rider'
+export type PartKind = 'paint' | 'glass' | 'tyre' | 'rim' | 'head' | 'tail' | 'trim' | 'accent' | 'rider' | 'hide'
 export type Model = Partial<Record<PartKind, THREE.BufferGeometry>>
-export type VariantKey = 'hatch' | 'sedan' | 'suv' | 'bus' | 'auto' | 'bike'
+export type VariantKey = 'hatch' | 'sedan' | 'suv' | 'bus' | 'auto' | 'bike' | 'cow' | 'cowLying'
 
 function rbox(w: number, h: number, d: number, r: number, x = 0, y = 0, z = 0) {
   const g = new RoundedBoxGeometry(w, h, d, 3, r)
@@ -126,6 +126,33 @@ function bike(): Model {
   }
 }
 
+/** An Indian zebu cow: humped shoulders, dewlap, short horns. Standing, or lying with legs folded. */
+function cow(lying: boolean): Model {
+  const y = lying ? 0.42 : 1.02
+  const body = rbox(0.72, 0.78, 1.75, 0.3, 0, y, -0.05)
+  const hump = new THREE.SphereGeometry(0.24, 12, 8).scale(1, 0.9, 1.2).translate(0, y + 0.42, 0.55)
+  const neck = rbox(0.34, 0.5, 0.5, 0.14, 0, y + 0.12, 0.95)
+  neck.rotateX(lying ? -0.2 : 0.35)
+  const head = rbox(0.3, 0.34, 0.5, 0.12, 0, y + (lying ? 0.38 : 0.06), lying ? 1.2 : 1.28)
+  const dewlap = rbox(0.12, 0.34, 0.4, 0.05, 0, y - 0.28, 0.8)
+  const ears = merge([box(0.22, 0.06, 0.12, -0.22, y + (lying ? 0.48 : 0.18), lying ? 1.08 : 1.15), box(0.22, 0.06, 0.12, 0.22, y + (lying ? 0.48 : 0.18), lying ? 1.08 : 1.15)])
+  const tail = new THREE.CapsuleGeometry(0.035, 0.7, 3, 6).translate(0, y - 0.1, -0.95)
+  const hideParts = [body, hump, neck, head, dewlap, ears, tail]
+  const dark: THREE.BufferGeometry[] = []
+  for (const x of [-0.13, 0.13]) dark.push(new THREE.ConeGeometry(0.04, 0.2, 6).rotateX(-0.5).rotateZ(x > 0 ? -0.5 : 0.5).translate(x, y + (lying ? 0.62 : 0.32), lying ? 1.12 : 1.2))
+  if (!lying) {
+    for (const x of [-0.22, 0.22])
+      for (const z of [-0.62, 0.55]) {
+        hideParts.push(new THREE.CapsuleGeometry(0.075, 0.62, 3, 8).translate(x, 0.42, z))
+        dark.push(new THREE.CylinderGeometry(0.075, 0.08, 0.08, 8).translate(x, 0.04, z))
+      }
+  } else {
+    // folded legs tucked under the body
+    for (const x of [-0.36, 0.36]) hideParts.push(new THREE.CapsuleGeometry(0.08, 0.5, 3, 8).rotateX(Math.PI / 2).translate(x, 0.12, 0.1))
+  }
+  return { hide: merge(hideParts), tyre: merge(dark) }
+}
+
 let cache: Record<VariantKey, Model> | null = null
 export function vehicleModels(): Record<VariantKey, Model> {
   cache ??= {
@@ -135,6 +162,8 @@ export function vehicleModels(): Record<VariantKey, Model> {
     bus: bus(),
     auto: auto(),
     bike: bike(),
+    cow: cow(false),
+    cowLying: cow(true),
   }
   return cache
 }
@@ -171,5 +200,6 @@ export function makeMaterials(night: boolean): Record<PartKind, THREE.Material> 
     trim: new THREE.MeshStandardMaterial({ color: '#1b1d1f', roughness: 0.6, metalness: 0.2 }),
     accent: new THREE.MeshStandardMaterial({ color: '#f2c21b', roughness: 0.5, emissive: '#ffb84d', emissiveIntensity: night ? 0.6 : 0 }),
     rider: new THREE.MeshStandardMaterial({ color: '#3b4046', roughness: 0.85 }),
+    hide: new THREE.MeshStandardMaterial({ color: night ? '#9a968e' : '#ffffff', roughness: 0.9 }),
   }
 }

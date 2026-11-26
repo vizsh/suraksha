@@ -7,7 +7,7 @@ import { implicitObstacles } from '../engine/implicit'
 import { driverFeed, laneOf, type FeedItem, type RouteThreat } from '../engine/relevance'
 import type { HazardKind, Manoeuvre, Observation, Threat, ThreatState, V2 } from '../engine/types'
 import { engineNow, loopStart, simTime } from './clock'
-import { egoAbsS, egoOffset, egoSpeed, type World } from './scenario'
+import { egoAbsS, egoSpeed, type World } from './scenario'
 import { useEvents } from '../sync/events'
 import { conditionsFrom, useWeather } from '../sense/weather'
 import { activeForecast, totalMm, useMonsoon, WARN_MM } from '../sense/monsoon'
@@ -232,7 +232,7 @@ export const useSim = create<SimState>((set, get) => ({
     }
 
     const route: RouteThreat[] = views.filter((v) => !v.ownOnly).map((v) => ({ id: v.id, kind: v.kind, state: v.state, s: v.s, offset: v.offset, onRoute: v.onRoute }))
-    const items = driverFeed(route, { s: egoS, offset: egoOffset(t), speed: egoSpeed(w, t) }, conditionsFrom(useWeather.getState().weather))
+    const items = driverFeed(route, { s: egoS, offset: w.egoLane(t), speed: egoSpeed(w, t) }, conditionsFrom(useWeather.getState().weather))
     const byId = new Map(views.map((v) => [v.id, v]))
     const feed = items.map((f) => ({ ...f, threat: byId.get(f.id)! }))
     set({ t, now, threats: views, feed })

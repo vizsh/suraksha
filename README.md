@@ -158,8 +158,8 @@ One shared world, eight live surfaces. Every device follows the same scenario se
 <td><img src="docs/images/ops.jpg" alt="Operations console with lane-level bird's-eye view and threat inspector" /><br/><b>Operations</b> <code>/ops</code> · fused lane-level view, sources, work orders, blackspots</td>
 </tr>
 <tr>
-<td><img src="docs/images/cockpit.jpg" alt="Cockpit HUD on a night drive with a confirmed barricade alert" /><br/><b>Cockpit</b> <code>/drive</code> · night HUD, voice alerts, webcam fatigue detection</td>
-<td><img src="docs/images/dash.jpg" alt="1920 by 720 in-dash screen with map, alert and Road Ahead rail" /><br/><b>In-dash screen</b> <code>/car</code> · 1920 × 720, glanceable at speed</td>
+<td><img src="docs/images/cockpit.jpg" alt="Cockpit HUD on a night drive with a confirmed barricade alert" /><br/><b>Cockpit</b> <code>/drive</code> · windshield HUD, voice alerts, a driver monitor that tracks head and eyes</td>
+<td><img src="docs/images/dash.jpg" alt="1920 by 720 in-dash screen: 3D navigation with the route glowing ahead, a driver-assist lane view with the bus and the pedestrian, and the speed cluster" /><br/><b>In-dash screen</b> <code>/car</code> · 3D navigation, a lane view with every car and hazard in its lane, the cluster</td>
 </tr>
 <tr>
 <td><img src="docs/images/story-driver.jpg" alt="Landing story final chapter from behind the driver" /><br/><b>Driver chapter</b> · "Your car hears it before the bus clears"</td>
@@ -191,7 +191,11 @@ One shared world, eight live surfaces. Every device follows the same scenario se
 
 <p align="center"><img src="docs/images/palette.jpg" alt="Command palette searching for the barricade" width="70%" /><br/><b>Command palette</b> · Ctrl/Cmd + K: surfaces, threats, story moments, layers</p>
 
-<p align="center"><img src="docs/images/phone.jpg" alt="Phone app: Road Ahead list and the phone as a road sensor" width="300" /><br/><b>Phone app</b> <code>/app</code> · Road Ahead, camera reports, the phone's accelerometer as a road sensor</p>
+<p align="center"><img src="docs/images/scenarios.jpg" alt="Scenario picker: five scenarios on three Powai roads, each card with its route map, hour and hazards" width="100%" /><br/><b>Scenarios</b> · five 48 s loops on three real roads: night, monsoon, school run, cattle and a wrong-way rider, a crash. See <a href="docs/SCENARIOS.md">SCENARIOS</a></p>
+
+<p align="center"><img src="docs/images/cockpit-school.jpg" alt="Cockpit in daylight on Orchard Avenue: children crossing behind the school bus, stop and wait" width="100%" /><br/><b>Cockpit follows the scenario</b> · the school run in daylight, with lane advice and the see-through view from the car ahead</p>
+
+<p align="center"><img src="docs/images/phone.jpg" alt="Phone app in a titanium frame: live 3D map, floating alert card and Road Ahead cards" width="300" /><br/><b>Phone app</b> <code>/app</code> · live 3D map, Road Ahead, camera reports, the phone's accelerometer as a road sensor</p>
 
 ### What is real and what is simulated
 
@@ -369,6 +373,8 @@ docs/                      architecture, engine, design, data, demo, roadmap, pl
 | [DEMO](docs/DEMO.md) | The 7-minute pitch, multi-device setup, deployment |
 | [ROADMAP](docs/ROADMAP.md) | Next features: real functionality and visual upgrades |
 | [LIVE_DRIVE](docs/LIVE_DRIVE.md) | Planned: running it in a real car (phone, OBD-II, head unit) |
+| [SCENARIOS](docs/SCENARIOS.md) | The five scenarios, what each tests, and ideas for more |
+| [TEST_VIDEOS](docs/TEST_VIDEOS.md) | Real dashcam footage to test Dashcam AI with, by hazard |
 | [REALISM_AND_FEATURES](docs/REALISM_AND_FEATURES.md) | Planned: making the 3D read as real Powai, and twelve features ranked for Mumbai roads |
 | [PLAN](docs/PLAN.md) | The original ideation and build plan |
 | [AGENTS](AGENTS.md) | Context for AI coding agents working in this repo |

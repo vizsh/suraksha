@@ -1,8 +1,15 @@
 // In-cabin driver monitoring with MediaPipe Face Landmarker, entirely on this device.
-// Signals: eye closure (blendshapes), PERCLOS over a rolling window, continuous closure
-// (microsleep), yawns (jaw open) and head drop. Video never leaves the browser.
+// Two questions, every frame:
+//   1. Are the eyes on the road? Gaze = head pose + eye direction (see gaze.ts), compared with a
+//      calibration taken while the driver looks ahead. A glance under 2 s is normal driving;
+//      2 s or more is a warning; looking down that long is called out as a likely phone.
+//   2. Is the driver falling asleep? Eye closure (blendshapes), PERCLOS over 20 s, continuous
+//      closure (microsleep), yawns (jaw open) and a dropped head.
+// Video never leaves the browser. The panel reads a 10 Hz summary from the store; the overlay
+// reads the latest frame directly, so drawing does not re-render React.
 import { create } from 'zustand'
 import type { FaceLandmarker as FL, NormalizedLandmark } from '@mediapipe/tasks-vision'
+import { calibrate, classify, gaze, measure, onRoad, smooth, type Attention, type Calibration, type Gaze, type Raw } from './gaze'
 
 export type FatigueLevel = 'awake' | 'drowsy' | 'microsleep'
 
@@ -10,40 +17,65 @@ export interface FatigueState {
   status: 'off' | 'starting' | 'running' | 'error'
   error: string | null
   level: FatigueLevel
+  attention: Attention
   eyesClosed: boolean
   perclos: number // share of the last 20 s with eyes mostly closed
   closedFor: number // seconds of the current continuous closure
+  offFor: number // seconds the eyes have been off the road, now
+  onShare: number // share of the last 30 s with the eyes on the road
   yawns: number // in the last 60 s
   headDown: boolean
   face: boolean
-  eyePoints: NormalizedLandmark[]
+  calibration: number // 0..1 while calibrating
+  gaze: Gaze | null
+  history: number[] // last 30 s at 4 Hz: 0 on road, 1 glance, 2 off road, 3 closed
 }
 
 export const useFatigue = create<FatigueState>(() => ({
   status: 'off',
   error: null,
   level: 'awake',
+  attention: 'calibrating',
   eyesClosed: false,
   perclos: 0,
   closedFor: 0,
+  offFor: 0,
+  onShare: 1,
   yawns: 0,
   headDown: false,
   face: false,
-  eyePoints: [],
+  calibration: 0,
+  gaze: null,
+  history: [],
 }))
+
+/** The latest frame, for the overlay: landmarks it draws and the gaze it points. */
+export const frame: { landmarks: NormalizedLandmark[] | null; gaze: Gaze | null; onRoad: boolean; closed: boolean } = {
+  landmarks: null,
+  gaze: null,
+  onRoad: true,
+  closed: false,
+}
 
 const WASM = '/mediapipe/wasm'
 const MODEL = 'https://storage.googleapis.com/mediapipe-models/face_landmarker/face_landmarker/float16/1/face_landmarker.task'
-// eye contour landmarks (MediaPipe face mesh indices)
-const EYES = [33, 160, 158, 133, 153, 144, 362, 385, 387, 263, 373, 380]
+const CAL_FRAMES = 45 // about 1.5 s of looking at the road
 
 let landmarker: FL | null = null
 let stream: MediaStream | null = null
 let raf = 0
 const frames: { t: number; closed: boolean }[] = []
+const attn: { t: number; v: number }[] = []
 const yawnTimes: number[] = []
 let closedSince = 0
+let offSince = 0
 let jawSince = 0
+let calSamples: Raw[] = []
+let cal: Calibration | null = null
+let smoothed: Gaze | null = null
+let lastPublish = 0
+let lastHist = 0
+let history: number[] = []
 
 export async function startMonitor(video: HTMLVideoElement) {
   if (useFatigue.getState().status === 'running') return
@@ -60,9 +92,9 @@ export async function startMonitor(video: HTMLVideoElement) {
         runningMode: 'VIDEO',
         numFaces: 1,
         outputFaceBlendshapes: true,
-        outputFacialTransformationMatrixes: true,
       })
     }
+    recalibrate()
     useFatigue.setState({ status: 'running' })
     loop(video)
   } catch (e) {
@@ -72,17 +104,26 @@ export async function startMonitor(video: HTMLVideoElement) {
   }
 }
 
+/** Look at the road and call this: the next 1.5 s of face becomes "eyes on the road". */
+export function recalibrate() {
+  calSamples = []
+  cal = null
+  smoothed = null
+  offSince = 0
+  useFatigue.setState({ attention: 'calibrating', calibration: 0 })
+}
+
 export function stopMonitor() {
   cancelAnimationFrame(raf)
   stream?.getTracks().forEach((t) => t.stop())
   stream = null
   frames.length = 0
+  attn.length = 0
   yawnTimes.length = 0
-  useFatigue.setState({ status: 'off', level: 'awake', face: false, eyePoints: [], closedFor: 0, perclos: 0, yawns: 0 })
-}
-
-function score(name: string, cats: { categoryName: string; score: number }[]) {
-  return cats.find((c) => c.categoryName === name)?.score ?? 0
+  history = []
+  frame.landmarks = null
+  frame.gaze = null
+  useFatigue.setState({ status: 'off', level: 'awake', attention: 'calibrating', face: false, closedFor: 0, offFor: 0, perclos: 0, yawns: 0, gaze: null, history: [] })
 }
 
 function loop(video: HTMLVideoElement) {
@@ -91,18 +132,28 @@ function loop(video: HTMLVideoElement) {
   const now = performance.now()
   const res = landmarker.detectForVideo(video, now)
   const cats = res.faceBlendshapes?.[0]?.categories
-  if (!cats || !res.faceLandmarks?.[0]) {
-    useFatigue.setState({ face: false, eyePoints: [] })
+  const lm = res.faceLandmarks?.[0]
+  if (!cats || !lm) {
+    frame.landmarks = null
+    if (now - lastPublish > 100) {
+      lastPublish = now
+      useFatigue.setState({ face: false })
+    }
     return
   }
-  const blink = (score('eyeBlinkLeft', cats) + score('eyeBlinkRight', cats)) / 2
-  const jaw = score('jawOpen', cats)
-  const closed = blink > 0.5
+  const blend = (name: string) => cats.find((c) => c.categoryName === name)?.score ?? 0
+  const raw = measure(lm, blend)
+  const closed = raw.closed > 0.5
+  const jaw = blend('jawOpen')
 
-  // head pitch from the facial transformation matrix (column-major 4x4)
-  const m = res.facialTransformationMatrixes?.[0]?.data
-  const pitch = m ? Math.atan2(-m[9], m[10]) * (180 / Math.PI) : 0
-  const headDown = pitch < -18
+  // calibration: frames with the eyes open, while the driver looks ahead
+  if (!cal) {
+    if (!closed) calSamples.push(raw)
+    if (calSamples.length >= CAL_FRAMES) cal = calibrate(calSamples)
+  }
+  const g = cal ? (smoothed = smooth(smoothed, gaze(raw, cal))) : null
+  const road = g ? onRoad(g) : true
+  const headDown = !!g && g.headPitch < -20
 
   frames.push({ t: now, closed })
   while (frames.length && now - frames[0].t > 20_000) frames.shift()
@@ -112,6 +163,15 @@ function loop(video: HTMLVideoElement) {
   else closedSince = 0
   const closedFor = closedSince ? (now - closedSince) / 1000 : 0
 
+  // eyes off the road (closure is counted separately, as drowsiness)
+  if (!road && !closed) offSince ||= now
+  else if (road) offSince = 0
+  const offFor = offSince ? (now - offSince) / 1000 : 0
+
+  attn.push({ t: now, v: road && !closed ? 1 : 0 })
+  while (attn.length && now - attn[0].t > 30_000) attn.shift()
+  const onShare = attn.reduce((a, b) => a + b.v, 0) / Math.max(1, attn.length)
+
   if (jaw > 0.55) jawSince ||= now
   else {
     if (jawSince && now - jawSince > 1200) yawnTimes.push(now)
@@ -119,16 +179,34 @@ function loop(video: HTMLVideoElement) {
   }
   while (yawnTimes.length && now - yawnTimes[0] > 60_000) yawnTimes.shift()
 
-  const level: FatigueLevel = closedFor > 1.2 || (headDown && closed) ? 'microsleep' : perclos > 0.15 || yawnTimes.length >= 2 ? 'drowsy' : 'awake'
+  const attention = classify({ calibrated: !!cal, onRoad: road, offFor, pitch: g?.pitch ?? 0, closedFor, headDropped: headDown, perclos, yawns: yawnTimes.length })
+  const level: FatigueLevel = attention === 'microsleep' ? 'microsleep' : attention === 'drowsy' ? 'drowsy' : 'awake'
+
+  frame.landmarks = lm
+  frame.gaze = g
+  frame.onRoad = road
+  frame.closed = closed
+
+  if (now - lastHist > 250) {
+    lastHist = now
+    history = [...history.slice(-119), closed ? 3 : road ? 0 : offFor >= 2 ? 2 : 1]
+  }
+  if (now - lastPublish < 100) return
+  lastPublish = now
   useFatigue.setState({
     face: true,
     eyesClosed: closed,
     perclos,
     closedFor,
+    offFor,
+    onShare,
     yawns: yawnTimes.length,
     headDown,
     level,
-    eyePoints: EYES.map((i) => res.faceLandmarks[0][i]),
+    attention,
+    calibration: cal ? 1 : calSamples.length / CAL_FRAMES,
+    gaze: g,
+    history,
   })
 }
 

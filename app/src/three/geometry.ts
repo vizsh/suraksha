@@ -107,7 +107,7 @@ export function buildRoads(data: CorridorData) {
 }
 
 /** Lane paint along a carriageway path: dashed lane dividers and solid edge lines. */
-export function buildLanePaint(path: Path, from = 0, to = path.length) {
+export function buildLanePaint(path: Path, from = 0, to = path.length, dashes = [-1.75, 1.75], edges = [-5.4, 5.4]) {
   const dash: number[] = []
   const solid: number[] = []
   const du: number[] = []
@@ -115,13 +115,13 @@ export function buildLanePaint(path: Path, from = 0, to = path.length) {
   const step = 1.5
   for (let s = from; s < to; s += step) {
     const dashOn = Math.floor(s / 4.5) % 2 === 0
-    for (const off of [-1.75, 1.75]) {
+    for (const off of dashes) {
       if (!dashOn) continue
       const a = path.at(s, off)
       const b = path.at(s + step, off)
       ribbon([[a.x, a.z], [b.x, b.z]], 0.16, 0.09, dash, du)
     }
-    for (const off of [-5.4, 5.4]) {
+    for (const off of edges) {
       const a = path.at(s, off)
       const b = path.at(s + step, off)
       ribbon([[a.x, a.z], [b.x, b.z]], 0.14, 0.09, solid, su)

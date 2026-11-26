@@ -1,14 +1,15 @@
-// The demo scenario on the real Powai corridor (JVLR eastbound, left-hand traffic).
-// It does not script threat states. It scripts what vehicles and people do and what each
-// sensor reports; the Threat Intelligence Engine decides what is noticed, confirmed or resolved.
-import { buildRisk, chainRoad, type CorridorData, type Path, type RiskField, type V2 } from './corridor'
+// The world for one scenario: the route, your car and the car ahead, everything standing or moving
+// on the road, the scripted sensor reports, and the background traffic. Scenarios themselves are
+// defined in scenarios.ts; this file turns one into positions and timings.
+import { ROAD_WIDTH, buildRisk, chainRoad, Path, type CorridorData, type RiskField, type V2 } from './corridor'
 import { LOOP } from './clock'
-import type { HazardKind, Observation } from '../engine/types'
 import { buildJunctions, simulateTraffic, type AmbientCar, type Junction } from './traffic'
+import { EGO_PLATE, SCOUT_PLATE, scenarioById, type Crossing, type Marks, type ScenarioDef, type ScenarioId, type ScriptManoeuvre, type ScriptObs } from './scenarios'
 
-export { LOOP }
+export { LOOP, EGO_PLATE, SCOUT_PLATE }
+export type { ScriptObs, ScriptManoeuvre }
 
-export type AgentKind = 'car' | 'bus' | 'auto' | 'bike' | 'ped' | 'cone'
+export type AgentKind = 'car' | 'bus' | 'auto' | 'bike' | 'ped' | 'cone' | 'cow'
 export interface Agent {
   id: string
   kind: AgentKind
@@ -16,22 +17,14 @@ export interface Agent {
   z: number
   heading: number
   connected: boolean
-  role?: 'ego' | 'scout' | 'ambient'
-  brake?: boolean // brake lights on
+  role?: 'ego' | 'scout' | 'ambient' | 'stalled'
+  brake?: boolean // brake lights on (or hazard lights, flashing)
+  paint?: string
+  lying?: boolean
+  height?: number
+  shirt?: string
 }
 
-/** A scripted sensor report, timed in seconds into the loop (negative = before the loop, e.g. history). */
-export interface ScriptObs extends Omit<Observation, 't' | 'id'> {
-  at: number
-  key: string
-}
-export interface ScriptManoeuvre {
-  at: number
-  key: string
-  vehicleId: string
-  pos: V2
-  type: 'swerve' | 'harsh-brake'
-}
 export interface RiskZone {
   id: string
   pos: V2
@@ -42,6 +35,7 @@ export interface RiskZone {
 
 export interface World {
   data: CorridorData
+  scenario: ScenarioDef
   path: Path
   path2: Path | null
   risk: RiskField
@@ -53,22 +47,22 @@ export interface World {
   zones: RiskZone[]
   junctions: Junction[]
   traffic: AmbientCar[]
+  marks: Marks
+  /** your car's lane offset at time t */
+  egoLane: (t: number) => number
+  /** arc length (absolute) of the place the views centre on */
+  focusS: number
+  /** half the carriageway width: the kerb is about here */
+  halfWidth: number
 }
 
-export const EGO_PLATE = 'MH-02 EV 4471'
 const DT = 0.05
-export const BUS_S = 300
-export const BARRICADE_S = 430
-export const POTHOLE_S = 130
-export const DEBRIS_S = 215
-export const PED_T0 = 21
-export const PED_T1 = 31.5
 
 function integrate(s0: number, speed: (t: number) => number) {
   const n = Math.ceil(LOOP / DT) + 1
   const out = new Float32Array(n)
   out[0] = s0
-  for (let i = 1; i < n; i++) out[i] = out[i - 1] + speed(i * DT) * DT
+  for (let i = 1; i < n; i++) out[i] = out[i - 1] + Math.max(0, speed(i * DT)) * DT
   return out
 }
 function lookup(table: Float32Array, t: number) {
@@ -78,7 +72,6 @@ function lookup(table: Float32Array, t: number) {
   return table[i] * (1 - k) + table[i + 1] * k
 }
 const ramp = (t: number, a: number, b: number) => Math.min(1, Math.max(0, (t - a) / (b - a)))
-const smooth = (x: number) => x * x * (3 - 2 * x)
 
 function rand(seed: number) {
   let s = seed >>> 0
@@ -88,93 +81,61 @@ function rand(seed: number) {
   }
 }
 
-const DAY = 86_400
+/** Offset of someone crossing, at time t. */
+export function crossingOffset(c: Crossing, t: number) {
+  return c.from + (c.to - c.from) * ramp(t, c.t0, c.t1)
+}
 
-export function buildWorld(data: CorridorData): World {
-  const JV = /Jogeshwari-Vikhroli Link Road|Jogeshwari-Vikhroli Link Turnpike/
-  const path = chainRoad(data.roads, JV)
+export function buildWorld(data: CorridorData, id?: ScenarioId | string): World {
+  const sc = scenarioById(id)
+  const path = chainRoad(data.roads, sc.route)
   let path2: Path | null = null
-  try {
-    const p2 = chainRoad(data.roads, JV, path.ids)
-    if (p2.length > 400) path2 = p2
-  } catch {
-    path2 = null
+  if (sc.traffic.oncoming?.length) {
+    // a two-way road: oncoming traffic drives the same centreline, reversed
+    path2 = new Path([...path.pts].reverse())
+  } else {
+    try {
+      const p2 = chainRoad(data.roads, sc.route, path.ids)
+      if (p2.length > 400) path2 = p2
+    } catch {
+      path2 = null
+    }
   }
-  const sStart = Math.max(40, Math.min(path.length * 0.12, path.length - 620))
-
-  const egoSpeed = (t: number) => 11 - 6.5 * smooth(ramp(t, 21, 25)) + 6.5 * smooth(ramp(t, 32, 36))
-  const scoutSpeed = (t: number) => 11 - 8 * smooth(ramp(t, 22.2, 23.4)) + 8 * smooth(ramp(t, 25.5, 28))
-  const egoS = integrate(sStart, egoSpeed)
-  const scoutS = integrate(sStart + 72, scoutSpeed)
+  const sStart = sc.start(path.length)
+  const egoS = integrate(sStart, sc.egoSpeed)
+  const scoutS = integrate(sStart + sc.scout.gap, sc.scout.speed)
 
   const r = rand(11)
   const at = (s: number, o: number, jitter = 0): V2 => {
     const p = path.at(sStart + s, o)
     return [p.x + (r() - 0.5) * jitter, p.z + (r() - 0.5) * jitter]
   }
-  const pedAt = (t: number): V2 => {
-    const k = ramp(t, PED_T0, PED_T1)
-    return at(BUS_S + 7.5, -10 + 14 * k)
-  }
-
   const script: ScriptObs[] = []
-  const add = (o: ScriptObs) => script.push(o)
-  const base = (kind: HazardKind) => ({ kind, polarity: 1 as const })
+  const manoeuvres: ScriptManoeuvre[] = []
+  sc.script({
+    at,
+    crossingAt: (c, t) => at(c.s, crossingOffset(c, t)),
+    add: (o) => script.push(o),
+    swerve: (t, vehicleId, s, off) => manoeuvres.push({ at: t, key: `swerve-${manoeuvres.length}`, vehicleId, pos: at(s, off, 2), type: 'swerve' }),
+    brake: (t, vehicleId, s, off) => manoeuvres.push({ at: t, key: `brake-${manoeuvres.length}`, vehicleId, pos: at(s, off, 2), type: 'harsh-brake' }),
+  })
 
-  // Pothole: known for days. Two cars' accelerometers, one dashcam, one resident.
-  add({ ...base('pothole'), key: 'pothole-imu-1', at: -3 * DAY, source: 'imu', sourceId: 'MH-01 CX 2210', pos: at(POTHOLE_S, 0, 2), conf: 0.82, who: 'MH-01 CX 2210', how: 'IMU spike, 7.4 m/s²', note: '1.2 m wide' })
-  add({ ...base('pothole'), key: 'pothole-imu-2', at: -2.6 * DAY, source: 'imu', sourceId: 'MH-04 JD 0918', pos: at(POTHOLE_S, 0.4, 2), conf: 0.76, who: 'MH-04 JD 0918', how: 'IMU spike, 6.1 m/s²' })
-  add({ ...base('pothole'), key: 'pothole-vision', at: -2 * DAY, source: 'vision', sourceId: 'MH-03 AK 5530', pos: at(POTHOLE_S, 0, 1.5), conf: 0.91, who: 'MH-03 AK 5530 dashcam', how: 'Road-damage detector, 0.91', note: '1.2 m wide' })
-  add({ ...base('pothole'), key: 'pothole-citizen', at: -1 * DAY, source: 'citizen', sourceId: 'resident-ward-s-14', reputation: 0.85, pos: at(POTHOLE_S, -0.5, 3), conf: 0.9, who: 'Resident, ward S', how: 'Photo and location' })
-
-  // Barricade: put up tonight, on no map. A resident reports it; cars start swerving; a dashcam names it.
-  add({ ...base('barricade'), key: 'barricade-citizen', at: 6, source: 'citizen', sourceId: 'resident-ward-s-77', reputation: 0.6, pos: at(BARRICADE_S, -3.5, 4), conf: 0.9, who: 'Resident, ward S', how: 'Photo, first report from this account' })
-  add({ ...base('barricade'), key: 'barricade-vision', at: 18, source: 'vision', sourceId: 'MH-47 BT 6602', pos: at(BARRICADE_S, -3.6, 1), conf: 0.78, who: 'MH-47 BT 6602 dashcam', how: 'Open-vocabulary detector: "barricade"' })
-
-  // Debris: a fallen branch reported earlier this evening by two dashcams and a resident.
-  // Somebody has since dragged it off the road. Nobody reports that; cars that pass the spot
-  // with their cameras on and see an empty lane quietly vote it away (pass-by verification).
-  const MIN = 60
-  add({ ...base('debris'), key: 'debris-vision-1', at: -50 * MIN, source: 'vision', sourceId: 'MH-01 DB 4410', pos: at(DEBRIS_S, 0, 1.5), conf: 0.9, who: 'MH-01 DB 4410 dashcam', how: 'Open-vocabulary detector: "fallen branch", 0.90', note: 'fallen branch' })
-  add({ ...base('debris'), key: 'debris-citizen', at: -45 * MIN, source: 'citizen', sourceId: 'resident-ward-s-31', reputation: 0.85, pos: at(DEBRIS_S, 0.6, 3), conf: 0.9, who: 'Resident, ward S', how: 'Photo and location', note: 'fallen branch' })
-  add({ ...base('debris'), key: 'debris-vision-2', at: -30 * MIN, source: 'vision', sourceId: 'MH-04 RN 7781', pos: at(DEBRIS_S, -0.4, 1.5), conf: 0.88, who: 'MH-04 RN 7781 dashcam', how: 'Open-vocabulary detector: "fallen branch", 0.88' })
-  for (const [t, plate] of [[4.5, 'MH-02 FF 1187'], [8.5, 'MH-43 ZR 0045'], [12.5, 'MH-01 QA 3391']] as const) {
-    add({ kind: 'debris', polarity: -1, key: `debris-clear-${t}`, at: t, source: 'vision', sourceId: plate, pos: at(DEBRIS_S, 0, 1), conf: 0.9, who: `${plate} dashcam`, how: 'Passed the spot, lane clear' })
-  }
-
-  const manoeuvres: ScriptManoeuvre[] = [
-    { at: 10.5, vehicleId: 'MH-02 FF 1187', s: BARRICADE_S - 6 },
-    { at: 11.2, vehicleId: 'MH-03 KL 7720', s: BARRICADE_S - 4 },
-    { at: 12.0, vehicleId: 'MH-01 QA 3391', s: BARRICADE_S - 7 },
-    { at: 13.4, vehicleId: 'MH-43 ZR 0045', s: BARRICADE_S - 5 },
-    { at: 14.1, vehicleId: 'MH-02 PM 8852', s: BARRICADE_S - 3 },
-  ].map((m, i) => ({ at: m.at, key: `swerve-${i}`, vehicleId: m.vehicleId, pos: at(m.s, -3.2, 2), type: 'swerve' as const }))
-
-  // Pedestrian behind the bus: the car ahead sees them, an oncoming car agrees, and once the
-  // bus no longer hides them the ego car's own camera sees them too.
-  for (const t of [22.3, 22.8, 23.3, 23.8, 24.3]) {
-    add({ ...base('pedestrian'), key: `ped-scout-${t}`, at: t, source: 'vision', sourceId: 'MH-03 AK 5530', pos: pedAt(t), conf: 0.88, who: 'Car ahead, MH-03 AK 5530', how: 'Dashcam vision, 0.88', note: 'from the left' })
-  }
-  for (const t of [22.9, 23.5]) {
-    add({ ...base('pedestrian'), key: `ped-oncoming-${t}`, at: t, source: 'vision', sourceId: 'MH-02 RT 3017', pos: pedAt(t), conf: 0.81, who: 'Oncoming car, MH-02 RT 3017', how: 'Dashcam vision, 0.81', note: 'from the left' })
-  }
-  for (let t = 27.5; t <= 31.01; t += 0.5) {
-    add({ ...base('pedestrian'), key: `ped-ego-${t}`, at: t, source: 'vision', sourceId: EGO_PLATE, pos: pedAt(t), conf: 0.95, who: 'Your car', how: 'Dashcam vision, 0.95', note: 'from the left' })
-  }
-
-  const busKerb = at(BUS_S + 4, -6)
-  const risk = buildRisk(data, [{ p: busKerb, amp: 0.7, sigma: 30 }])
+  const risk = buildRisk(
+    data,
+    sc.risk.map(([s, off, amp, sigma]) => ({ p: at(s, off), amp, sigma })),
+  )
   const roadName = (p: V2) => {
     let best = { d: Infinity, name: '' }
-    for (const r of data.roads) {
-      if (!r.name || !['primary', 'secondary', 'tertiary', 'trunk'].includes(r.kind)) continue
-      for (const q of r.pts) {
+    for (const rd of data.roads) {
+      if (!rd.name || !['primary', 'secondary', 'tertiary', 'trunk'].includes(rd.kind)) continue
+      for (const q of rd.pts) {
         const d = Math.hypot(q[0] - p[0], q[1] - p[1])
-        if (d < best.d) best = { d, name: r.name }
+        if (d < best.d) best = { d, name: rd.name }
       }
     }
     return best.name.replace('Jogeshwari-Vikhroli Link Road', 'JVLR').replace('Jogeshwari-Vikhroli Link Turnpike', 'JVLR')
   }
+  const focus = at(sc.focus, 0)
   const seen = new Set<string>()
   const zones: RiskZone[] = []
   for (const pk of risk.peaks) {
@@ -183,13 +144,13 @@ export function buildWorld(data: CorridorData): World {
       .filter((f) => f.kind === 'traffic_signals' || f.kind === 'bus_stop')
       .map((f) => ({ f, d: Math.hypot(f.p[0] - pk.p[0], f.p[1] - pk.p[1]) }))
       .sort((a, b) => a.d - b.d)[0]
-    const atBus = Math.hypot(pk.p[0] - busKerb[0], pk.p[1] - busKerb[1]) < 40
+    const atFocus = Math.hypot(pk.p[0] - focus[0], pk.p[1] - focus[1]) < 45 && !!sc.marks.bus
     const road = roadName(pk.p)
-    const kindLabel = atBus ? 'Bus stop crossing' : near && near.d < 70 && near.f.kind === 'traffic_signals' ? 'Signal junction' : 'High-risk segment'
+    const kindLabel = atFocus ? 'Bus stop crossing' : near && near.d < 70 && near.f.kind === 'traffic_signals' ? 'Signal junction' : 'High-risk segment'
     const label = road ? `${kindLabel}, ${road}` : kindLabel
     if (seen.has(label)) continue
     seen.add(label)
-    const why = atBus
+    const why = atFocus
       ? 'No zebra, footpath gap, 4 pedestrian incidents (synthetic)'
       : kindLabel === 'Signal junction'
         ? 'Turning conflicts, 6 pedestrian incidents (synthetic)'
@@ -197,18 +158,18 @@ export function buildWorld(data: CorridorData): World {
     zones.push({ id: `zone-${zones.length}`, pos: pk.p, value: pk.value, label, why })
   }
 
-  // background traffic: same random draw as before, so car a3 is still car a3
+  // background traffic: the same random draw for every scenario, so car a3 is always car a3
   const rr = rand(47)
-  const kinds: AgentKind[] = ['car', 'car', 'car', 'auto', 'bike', 'car', 'bike', 'car', 'auto']
-  const lanes = [-3.5, 0, 3.5]
-  // the first 46 are the original cars (the story's message arcs name some of them); 18 more fill the queues
-  const specs = Array.from({ length: 64 }, (_, i) => ({
-    s0: rr() * 2000,
-    v: 8 + rr() * 5,
-    lane: lanes[i % 3],
-    kind: kinds[i % kinds.length] as AmbientCar['kind'],
-    opposite: i % 2 === 1 && path2 !== null,
-  }))
+  const kinds: AmbientCar['kind'][] = ['car', 'car', 'car', 'auto', 'bike', 'car', 'bike', 'car', 'auto']
+  const lanes = sc.traffic.lanes
+  const oncoming = sc.traffic.oncoming ?? []
+  const specs = Array.from({ length: sc.traffic.count ?? 64 }, (_, i) => {
+    const s0 = rr() * 2000
+    const v = 8 + rr() * 5
+    const opposite = i % 2 === 1 && path2 !== null && (oncoming.length > 0 || !sc.traffic.oncoming)
+    const lane = opposite && oncoming.length ? oncoming[i % oncoming.length] : lanes[i % lanes.length]
+    return { s0, v: oncoming.length ? v * 0.75 : v, lane, kind: kinds[i % kinds.length], opposite }
+  })
   const signals = data.points.filter((f) => f.kind === 'traffic_signals')
   const junctions = buildJunctions(signals, path, path2, [egoS, scoutS])
   const traffic = simulateTraffic(
@@ -217,18 +178,16 @@ export function buildWorld(data: CorridorData): World {
     path2,
     junctions,
     [
-      { s: egoS, lane: egoOffset },
-      { s: scoutS, lane: () => 0 },
+      { s: egoS, lane: sc.egoLane },
+      { s: scoutS, lane: () => sc.scout.lane },
     ],
     LOOP,
+    (sc.traffic.blocks ?? []).map((b) => ({ s: sStart + b.s, lane: b.lane, until: b.until })),
   )
 
-  return { data, path, path2, risk, sStart, egoS, scoutS, script, manoeuvres, zones, junctions, traffic }
-}
-
-/** Ego starts in the kerb lane and moves to lane 2 when the network flags the bus stop ahead. */
-export function egoOffset(t: number) {
-  return -3.5 + 3.5 * smooth(ramp(t, 17.5, 20.5))
+  const kind = data.roads.find((rd) => rd.name && sc.route.test(rd.name))?.kind ?? 'primary'
+  const halfWidth = (ROAD_WIDTH[kind] ?? 12) / 2
+  return { data, scenario: sc, path, path2, risk, sStart, egoS, scoutS, script, manoeuvres, zones, junctions, traffic, marks: sc.marks, egoLane: sc.egoLane, focusS: sStart + sc.focus, halfWidth }
 }
 
 /** Absolute arc length of the ego car along the route. */
@@ -257,11 +216,11 @@ export function waveRadius(t: number) {
 const AGENTS: Agent[] = []
 
 export function sampleAgents(w: World, t: number): Agent[] {
-  const { path, sStart } = w
+  const { path, sStart, marks } = w
   AGENTS.length = 0
-  const put = (id: string, kind: AgentKind, s: number, off: number, connected: boolean, role?: Agent['role'], on: Path = path, brake = false) => {
+  const put = (id: string, kind: AgentKind, s: number, off: number, connected: boolean, extra: Partial<Agent> = {}, on: Path = path, turn = 0) => {
     const p = on.at(s, off)
-    AGENTS.push({ id, kind, x: p.x, z: p.z, heading: p.heading, connected, role, brake })
+    AGENTS.push({ id, kind, x: p.x, z: p.z, heading: p.heading + turn, connected, ...extra })
   }
   const braking = (tab: Float32Array) => {
     const a = lookup(tab, Math.max(0, t - 0.15))
@@ -269,29 +228,42 @@ export function sampleAgents(w: World, t: number): Agent[] {
     const c = lookup(tab, Math.min(LOOP - 0.01, t + 0.15))
     return (c - b - (b - a)) / (0.15 * 0.15) < -1
   }
-  put('ego', 'car', lookup(w.egoS, t), egoOffset(t), true, 'ego', path, braking(w.egoS))
-  put('scout', 'car', lookup(w.scoutS, t), 0, true, 'scout', path, braking(w.scoutS))
-  put('bus', 'bus', sStart + BUS_S, -5.2, false)
-  const k = ramp(t, PED_T0, PED_T1)
-  if (t > PED_T0 - 2 && t < PED_T1 + 3) put('ped', 'ped', sStart + BUS_S + 7.5, -10 + 14 * k, false)
-  for (let i = 0; i < 6; i++) put(`cone${i}`, 'cone', sStart + BARRICADE_S - 4 + i * 2.2, -5.4 + i * 0.6, false)
+  put('ego', 'car', lookup(w.egoS, t), w.egoLane(t), true, { role: 'ego', brake: braking(w.egoS) })
+  put('scout', 'car', lookup(w.scoutS, t), w.scenario.scout.lane, true, { role: 'scout', brake: braking(w.scoutS) })
+  if (marks.bus) put('bus', 'bus', sStart + marks.bus.s, marks.bus.off, false, { paint: marks.bus.paint })
+  marks.crossings.forEach((c, i) => {
+    if (t > c.t0 - 2 && t < c.t1 + 3) put(i ? `ped${i}` : 'ped', 'ped', sStart + c.s, crossingOffset(c, t), false, { height: c.height, shirt: c.shirt })
+  })
+  if (marks.barricade !== undefined) for (let i = 0; i < 6; i++) put(`cone${i}`, 'cone', sStart + marks.barricade - 4 + i * 2.2, -5.4 + i * 0.6, false)
+  // stopped cars with their hazard lights flashing
+  const hazard = Math.floor(t * 1.6) % 2 === 0
+  marks.stalled?.forEach((st, i) => put(`stalled${i}`, 'car', sStart + st.s, st.off, false, { role: 'stalled', brake: hazard, paint: st.paint }, path, i % 2 ? 0.08 : -0.12))
+  marks.cattle?.forEach((c, i) => {
+    const k = ramp(t, c.t0, c.t1)
+    const off = c.off0 + (c.off1 - c.off0) * k
+    // a cow walking across faces where it is going; one lying down sits at an angle to the road
+    const across = c.off1 !== c.off0 && k > 0 && k < 1
+    const turn = across ? (c.off1 > c.off0 ? -Math.PI / 2 + 0.3 : Math.PI / 2 - 0.3) : 0.9 + i * 0.7
+    put(`cow${i}`, 'cow', sStart + c.s, off, false, { lying: c.lying, paint: i % 2 ? '#d9d3c7' : '#8b7f72' }, path, turn)
+  })
+  if (marks.wrongWay) {
+    const ww = marks.wrongWay
+    if (t >= ww.t0) put('wrongway', 'bike', sStart + ww.s0 - ww.speed * (t - ww.t0), ww.off, false, {}, path, Math.PI)
+  }
   w.traffic.forEach((a, i) => {
     const k = Math.min(a.s.length - 1, Math.round(t / DT))
-    put(`a${i}`, a.kind, lookup(a.s, t), a.lane, i % 3 === 0, 'ambient', a.opposite && w.path2 ? w.path2 : path, a.brake[k] === 1)
+    put(`a${i}`, a.kind, lookup(a.s, t), a.lane, i % 3 === 0, { role: 'ambient', brake: a.brake[k] === 1 }, a.opposite && w.path2 ? w.path2 : path)
   })
   return AGENTS
 }
 
-/** Connected-car message arcs active at time t: one burst per scripted report from a vehicle. */
+/** Connected-car message arcs at time t: a burst from a nearby connected car for each live report. */
 export function arcsAt(w: World, t: number): { from: string; to: string; p: number; color: 'confirmed' | 'potential' }[] {
-  const bursts: { t: number; from: string; color: 'confirmed' | 'potential' }[] = [
-    { t: 6.2, from: 'a3', color: 'potential' },
-    { t: 12, from: 'a6', color: 'potential' },
-    { t: 18, from: 'a9', color: 'confirmed' },
-    { t: 22.3, from: 'scout', color: 'confirmed' },
-    { t: 22.9, from: 'a12', color: 'confirmed' },
-  ]
-  void w
+  const bursts = w.script
+    .filter((o) => o.at >= 0 && o.at < LOOP && (o.source === 'vision' || o.source === 'imu' || o.source === 'citizen') && (o.polarity ?? 1) === 1)
+    .filter((o, i, all) => all.findIndex((x) => Math.abs(x.at - o.at) < 1.2) === i)
+    .slice(0, 6)
+    .map((o, i) => ({ t: o.at, from: o.sourceId === SCOUT_PLATE ? 'scout' : `a${(i * 3 + 3) % 45}`, color: (i >= 2 ? 'confirmed' : 'potential') as 'confirmed' | 'potential' }))
   const targets = ['ego', 'a0', 'a15', 'a21', 'a30', 'a33']
   const out: { from: string; to: string; p: number; color: 'confirmed' | 'potential' }[] = []
   for (const b of bursts) {
@@ -306,5 +278,16 @@ export function arcsAt(w: World, t: number): { from: string; to: string; p: numb
 export function virtualSpotAhead(w: World, t: number, metresAhead = 160): V2 {
   const s = Math.ceil((lookup(w.egoS, t) + metresAhead) / 120) * 120
   const p = w.path.at(s, 0)
+  return [p.x, p.z]
+}
+
+/** The scenario's first resident report: the one the landing page and phone follow end to end. */
+export function citizenReport(w: World): ScriptObs | undefined {
+  return w.script.find((o) => o.source === 'citizen' && o.at >= 0 && (o.polarity ?? 1) === 1) ?? w.script.find((o) => o.source === 'citizen')
+}
+
+/** World position of the place the views centre on. */
+export function focusPoint(w: World): V2 {
+  const p = w.path.at(w.focusS, 0)
   return [p.x, p.z]
 }

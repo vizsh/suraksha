@@ -3,7 +3,8 @@ import { Link } from 'wouter'
 import { AnimatePresence, motion, useMotionValueEvent, useScroll } from 'motion/react'
 import { ArrowRightIcon } from '@phosphor-icons/react'
 import { StoryCanvas, useStory } from '../three/Canvases'
-import { setOverride } from '../world/clock'
+import { setOverride, setScenario } from '../world/clock'
+import { DEFAULT_SCENARIO } from '../world/scenarios'
 import { useSim } from '../world/store'
 import { SurfaceNav } from '../app/SurfaceNav'
 import { Playground } from '../product/Playground'
@@ -232,6 +233,16 @@ export default function Landing() {
     <main className="bg-clay text-ink">
       <SurfaceNav />
       <LaunchButton />
+      {world.scenario.id !== DEFAULT_SCENARIO && (
+        <div className="fixed bottom-4 left-1/2 z-50 flex w-[min(560px,calc(100vw-2rem))] -translate-x-1/2 items-center gap-3 bg-ink px-4 py-2.5 text-[13px] text-clay" style={{ boxShadow: '0 20px 40px -20px rgba(0,0,0,0.5)' }}>
+          <span className="min-w-0 flex-1">
+            This page tells the night on JVLR. Now playing: <span className="font-medium">{world.scenario.short}</span>.
+          </span>
+          <button onClick={() => setScenario(DEFAULT_SCENARIO)} className="shrink-0 bg-clay px-2.5 py-1 text-[12px] font-medium text-ink hover:bg-white">
+            Play the night story
+          </button>
+        </div>
+      )}
       <Story />
       <Numbers />
       <PlaygroundSection />

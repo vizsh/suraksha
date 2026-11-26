@@ -2,7 +2,7 @@
 // Detection runs on this device; only the resulting observation is shared, then fused by the engine.
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { CameraIcon, CpuIcon, FilmStripIcon, ShieldCheckIcon } from '@phosphor-icons/react'
+import { CameraIcon, CpuIcon, FilmStripIcon, PauseIcon, PlayIcon, ShieldCheckIcon } from '@phosphor-icons/react'
 import { SurfaceNav } from '../app/SurfaceNav'
 import { useSim, threatForObservation, hazardLabel } from '../world/store'
 import { useEvents } from '../sync/events'
@@ -41,6 +41,9 @@ export default function Dashcam() {
   const [flash, setFlash] = useState<string | null>(null)
   const gate = useMemo(() => createGate(), [])
   const stream = useRef<MediaStream | null>(null)
+  // where in a video file each report came from, for the timeline markers
+  const [marks, setMarks] = useState<{ t: number; kind: HazardKind }[]>([])
+  const isVideoFile = source === 'file' && !image.current
 
   useEffect(() => {
     void loadObjects()
@@ -62,6 +65,8 @@ export default function Dashcam() {
       who: `Phone dashcam ${deviceId.slice(-4).toUpperCase()}`,
       how: `${how}, ${score.toFixed(2)}${snap.road ? `, ${snap.road}${snap.lane ? ` lane ${snap.lane}` : ''}` : ''}`,
     })
+    const v = video.current
+    if (v && v.src && !v.srcObject && !image.current) setMarks((m) => [...m, { t: v.currentTime, kind }])
     setFlash(`Reported to the network: ${hazardLabel(kind)}`)
     setTimeout(() => setFlash(null), 1800)
   }
@@ -122,13 +127,17 @@ export default function Dashcam() {
       const now = performance.now()
       if (now - lastObj < 66) return // ~15 checks a second is plenty
       lastObj = now
+      // for a video file the gate counts video time, so consistency and cooldown mean the same at any speed
+      const fileVideo = src instanceof HTMLVideoElement && !src.srcObject
+      const clock = fileVideo ? src.currentTime * 1000 : now
+      const paused = fileVideo && src.paused
       c.width = 640
       c.height = Math.round((640 * sh) / sw)
       c.getContext('2d')!.drawImage(src, 0, 0, c.width, c.height)
       const dets = detectObjects(c, now)
       useDetector.setState({ dets })
       for (const d of dets) {
-        if (d.label in OBJECT_KIND && gate.object(d.label as ObjectLabel, d.box, now)) {
+        if (!paused && d.label in OBJECT_KIND && gate.object(d.label as ObjectLabel, d.box, clock)) {
           report(OBJECT_KIND[d.label as ObjectLabel], d.score, `On-device detector: ${d.label}`)
         }
       }
@@ -146,7 +155,7 @@ export default function Dashcam() {
             if (!probs) return
             const top = (Object.entries(probs) as [string, number][]).reduce((a, b) => (b[1] > a[1] ? b : a))
             if (top[0] === 'clear' && top[1] >= 0.55) lastClear.current = performance.now()
-            const hit = gate.surface(probs, performance.now())
+            const hit = paused ? null : gate.surface(probs, fileVideo ? src.currentTime * 1000 : performance.now())
             if (hit) report(SURFACE_KIND[hit], probs[hit], `Road-surface model: ${hit}`)
           })
           .finally(() => (busy = false))
@@ -244,7 +253,9 @@ export default function Dashcam() {
       video.current!.srcObject = null
       video.current!.src = url
       video.current!.loop = true
+      video.current!.playbackRate = 1
       void video.current!.play()
+      setMarks([])
       setSource('file')
     }
   }
@@ -303,6 +314,7 @@ export default function Dashcam() {
               </div>
             )}
           </div>
+          {isVideoFile && <Transport video={video} marks={marks} />}
           {source !== 'none' && (
             <div className="mt-3 flex flex-wrap items-center gap-2 text-[13px]">
               <button onClick={useCamera} className="flex items-center gap-1.5 px-3 py-1.5 hover:bg-white/10" style={{ boxShadow: 'inset 0 0 0 1px rgba(231,227,217,0.25)' }}>
@@ -399,6 +411,120 @@ function Model({ name, detail, status, progress, action }: { name: string; detai
       ) : (
         <span className="text-[12px] text-clay/70">{word}</span>
       )}
+    </div>
+  )
+}
+
+const RATES = [0.5, 1, 2, 4, 8, 16]
+const fmt = (t: number) => {
+  if (!Number.isFinite(t)) return '0:00'
+  const h = Math.floor(t / 3600)
+  const m = Math.floor((t % 3600) / 60)
+  const sec = Math.floor(t % 60)
+  return (h ? `${h}:${String(m).padStart(2, '0')}` : String(m)) + `:${String(sec).padStart(2, '0')}`
+}
+
+/** Playback for a video file: play, skip, scrub, speed, and where each report came from. */
+function Transport({ video, marks }: { video: React.RefObject<HTMLVideoElement | null>; marks: { t: number; kind: HazardKind }[] }) {
+  const [t, setT] = useState(0)
+  const [dur, setDur] = useState(0)
+  const [playing, setPlaying] = useState(true)
+  const [rate, setRate] = useState(1)
+  const bar = useRef<HTMLDivElement>(null)
+  useEffect(() => {
+    const v = video.current
+    if (!v) return
+    const sync = () => {
+      setT(v.currentTime)
+      setDur(Number.isFinite(v.duration) ? v.duration : 0)
+      setPlaying(!v.paused)
+      setRate(v.playbackRate)
+    }
+    const id = setInterval(sync, 200)
+    v.addEventListener('play', sync)
+    v.addEventListener('pause', sync)
+    v.addEventListener('loadedmetadata', sync)
+    sync()
+    return () => {
+      clearInterval(id)
+      v.removeEventListener('play', sync)
+      v.removeEventListener('pause', sync)
+      v.removeEventListener('loadedmetadata', sync)
+    }
+  }, [video])
+  const v = () => video.current!
+  const seekTo = (x: number) => {
+    const r = bar.current!.getBoundingClientRect()
+    v().currentTime = Math.max(0, Math.min(1, (x - r.left) / r.width)) * (dur || 0)
+  }
+  const btn = 'flex h-8 items-center justify-center px-2.5 text-[12px] transition-colors hover:bg-white/10'
+  const ring = { boxShadow: 'inset 0 0 0 1px rgba(231,227,217,0.25)' }
+  const pct = (x: number) => `${dur ? (x / dur) * 100 : 0}%`
+  return (
+    <div className="mt-3 select-none">
+      <div className="flex flex-wrap items-center gap-2">
+        <button onClick={() => (v().paused ? void v().play() : v().pause())} className={btn + ' w-9'} style={ring} aria-label={playing ? 'Pause' : 'Play'}>
+          {playing ? <PauseIcon size={15} weight="fill" /> : <PlayIcon size={15} weight="fill" />}
+        </button>
+        <button onClick={() => (v().currentTime = Math.max(0, v().currentTime - 10))} className={btn} style={ring}>
+          −10 s
+        </button>
+        <button onClick={() => (v().currentTime = Math.min(dur, v().currentTime + 10))} className={btn} style={ring}>
+          +10 s
+        </button>
+        <span className="figures px-1 text-[12px] text-clay/70">
+          {fmt(t)} / {fmt(dur)}
+        </span>
+        <span className="flex-1" />
+        <span className="text-[11px] text-clay/50">Speed</span>
+        <div className="flex" style={ring}>
+          {RATES.map((r) => (
+            <button
+              key={r}
+              onClick={() => {
+                v().playbackRate = r
+                setRate(r)
+              }}
+              aria-pressed={rate === r}
+              className={'figures h-8 px-2.5 text-[12px] transition-colors ' + (rate === r ? 'bg-clay text-ink' : 'hover:bg-white/10')}
+            >
+              {r}×
+            </button>
+          ))}
+        </div>
+      </div>
+      {/* the scrubber, with a tick wherever a report was sent */}
+      <div
+        ref={bar}
+        className="relative mt-2 h-6 cursor-pointer touch-none"
+        onPointerDown={(e) => {
+          e.currentTarget.setPointerCapture(e.pointerId)
+          seekTo(e.clientX)
+        }}
+        onPointerMove={(e) => e.buttons === 1 && seekTo(e.clientX)}
+      >
+        <div className="absolute inset-x-0 top-1/2 h-[3px] -translate-y-1/2 bg-white/15" />
+        <div className="absolute left-0 top-1/2 h-[3px] -translate-y-1/2 bg-[#7fb6e6]" style={{ width: pct(t) }} />
+        {marks.map((m, i) => (
+          <button
+            key={i}
+            title={`${hazardLabel(m.kind)} at ${fmt(m.t)}`}
+            onPointerDown={(e) => {
+              e.stopPropagation()
+              v().currentTime = Math.max(0, m.t - 2)
+            }}
+            className="absolute top-0 h-6 w-2.5 -translate-x-1/2"
+            style={{ left: pct(m.t) }}
+          >
+            <span className="mx-auto block h-3 w-[3px]" style={{ background: m.kind === 'pedestrian' || m.kind === 'animal' ? '#e0401f' : '#d19a1c' }} />
+          </button>
+        ))}
+        <div className="pointer-events-none absolute top-1/2 h-3 w-3 -translate-x-1/2 -translate-y-1/2 rounded-full bg-clay shadow" style={{ left: pct(t) }} />
+      </div>
+      <p className="mt-1 text-[11px] text-clay/50">
+        {marks.length ? `${marks.length} report${marks.length === 1 ? '' : 's'} from this video, marked above: select one to jump to just before it. ` : ''}
+        {rate >= 4 ? 'At 4× and faster the models see fewer frames per second of road, so brief hazards can be missed.' : 'Speed it up to scan a long drive; slow it down to inspect a detection.'}
+      </p>
     </div>
   )
 }

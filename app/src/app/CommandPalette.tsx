@@ -7,27 +7,19 @@ import { MagnifyingGlassIcon } from '@phosphor-icons/react'
 import { SURFACES } from './SurfaceNav'
 import { useSim } from '../world/store'
 import { useTwinCam } from '../world/twinCam'
-import { seek, pause, play, resync, clockState } from '../world/clock'
+import { seek, pause, play, resync, clockState, setScenario } from '../world/clock'
+import { SCENARIOS } from '../world/scenarios'
 import { useAtmos } from '../world/atmos'
 import { useFilm } from '../world/film'
 import { useWeather } from '../sense/weather'
 import { STATE, StateGlyph } from '../product/bits'
 
-const BEATS: [number, string][] = [
-  [4.5, 'A passing car sees the branch gone'],
-  [6, 'Resident reports a barricade'],
-  [8.5, 'Passing cars clear the fallen branch'],
-  [12, 'Cars swerve at the barricade'],
-  [18, 'Dashcam confirms the barricade'],
-  [22.3, 'Car ahead sees the pedestrian'],
-  [27.5, 'Your camera sees the pedestrian'],
-  [40, 'Pedestrian clears'],
-]
 
 export function CommandPalette() {
   const [open, setOpen] = useState(false)
   const [, go] = useLocation()
   const threats = useSim((s) => s.threats)
+  const world = useSim((s) => s.world)
   const setXray = useSim((s) => s.setXray)
   const xray = useSim((s) => s.xray)
   const flyTo = useTwinCam((s) => s.flyTo)
@@ -104,6 +96,14 @@ export function CommandPalette() {
                       </Command.Item>
                     ))}
                 </Command.Group>
+                <Command.Group heading="Scenarios" className={group}>
+                  {SCENARIOS.map((sc) => (
+                    <Command.Item key={sc.id} value={`scenario ${sc.title} ${sc.road}`} onSelect={run(() => setScenario(sc.id))} className={item}>
+                      <span className="flex-1">{sc.title}</span>
+                      {world?.scenario.id === sc.id && <span className="text-[12px] text-ink-3">playing</span>}
+                    </Command.Item>
+                  ))}
+                </Command.Group>
                 <Command.Group heading="Story moments" className={group}>
                   <Command.Item
                     value="film mode record pitch video flythrough cinematic"
@@ -116,7 +116,7 @@ export function CommandPalette() {
                   >
                     Film mode: play the six-shot flythrough for recording
                   </Command.Item>
-                  {BEATS.map(([t, label]) => (
+                  {(world?.scenario.beats ?? []).map(([t, label]) => (
                     <Command.Item key={t} value={`moment ${label}`} onSelect={run(() => seek(t))} className={item}>
                       <span className="figures w-10 text-[11px] text-ink-3">{t.toFixed(1)}</span>
                       <span>{label}</span>
