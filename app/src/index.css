@@ -140,3 +140,11 @@
     transition-duration: 0.01ms !important;
   }
 }
+
+/* horizontally scrollable control rows on phones, without a visible scrollbar */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}

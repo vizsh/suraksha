@@ -472,7 +472,7 @@ function StoryCamera({ world }: { world: World }) {
   return null
 }
 
-export function StoryCanvas({ world, xray, className }: { world: World; xray: boolean; className?: string }) {
+export function StoryCanvas({ world, xray, labels = true, className }: { world: World; xray: boolean; labels?: boolean; className?: string }) {
   return (
     <Frame className={className}>
       <fog attach="fog" args={['#d6dde0', 1100, 3400]} />
@@ -480,7 +480,7 @@ export function StoryCanvas({ world, xray, className }: { world: World; xray: bo
       <PerspectiveCamera makeDefault fov={34} near={0.5} far={8000} />
       <StoryCamera world={world} />
       <DayLight target={busFocus(world)} />
-      <CityScene world={world} xray={xray} />
+      <CityScene world={world} xray={xray} labels={labels} />
       <Post />
     </Frame>
   )

@@ -1,6 +1,7 @@
 // Monsoon early warning. Rain forecast for the next 6 hours (Open-Meteo) plus the lowest points
 // on the corridor's roads (Open-Meteo elevation, Copernicus DEM). Heavy rain forecast over a low
 // point raises a predicted waterlogging threat before any water is on the road.
+import { cachedJson } from './cachedJson'
 import { create } from 'zustand'
 import type { V2 } from '../engine/types'
 import { toLatLon } from '../world/corridor'
@@ -59,12 +60,12 @@ export const useMonsoon = create<MonsoonState>((set, get) => ({
       const ll = pick.map((p) => toLatLon(w.data, p.pos[0], p.pos[1]))
       const lat0 = w.data.origin.lat.toFixed(4)
       const lon0 = w.data.origin.lon.toFixed(4)
-      const [elevRes, rainRes] = await Promise.all([
-        fetch(`https://api.open-meteo.com/v1/elevation?latitude=${ll.map((p) => p.lat.toFixed(5)).join(',')}&longitude=${ll.map((p) => p.lon.toFixed(5)).join(',')}`),
-        fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat0}&longitude=${lon0}&hourly=precipitation,precipitation_probability&forecast_hours=6&timezone=Asia%2FKolkata`),
+      // ground height does not change: keep it for a month; the rain forecast for half an hour
+      const [elevJ, rain] = await Promise.all([
+        cachedJson<{ elevation: number[] }>(`https://api.open-meteo.com/v1/elevation?latitude=${ll.map((p) => p.lat.toFixed(5)).join(',')}&longitude=${ll.map((p) => p.lon.toFixed(5)).join(',')}`, 30 * 86_400_000),
+        cachedJson<{ hourly?: { time: string[]; precipitation: number[]; precipitation_probability?: number[] } }>(`https://api.open-meteo.com/v1/forecast?latitude=${lat0}&longitude=${lon0}&hourly=precipitation,precipitation_probability&forecast_hours=6&timezone=Asia%2FKolkata`, 30 * 60_000),
       ])
-      const elev = (await elevRes.json()).elevation as number[]
-      const rain = await rainRes.json()
+      const elev = elevJ.elevation
       const ranked = pick.map((p, i) => ({ ...p, elev: elev[i] })).sort((a, b) => a.elev - b.elev)
       const low: LowPoint[] = []
       for (const r of ranked) {
@@ -74,8 +75,8 @@ export const useMonsoon = create<MonsoonState>((set, get) => ({
       }
       const hours: HourRain[] = (rain.hourly?.time ?? []).map((t: string, i: number) => ({
         time: t.slice(11, 16),
-        mm: rain.hourly.precipitation[i] ?? 0,
-        prob: rain.hourly.precipitation_probability?.[i] ?? 0,
+        mm: rain.hourly!.precipitation[i] ?? 0,
+        prob: rain.hourly!.precipitation_probability?.[i] ?? 0,
       }))
       set({ status: 'ok', lowPoints: low, hours })
     } catch {

@@ -232,7 +232,7 @@ export function CarSection({ world }: { world: World }) {
           <Hud world={world} />
         </Scaled>
       </div>
-      <div className="mt-14 grid items-start gap-10 md:grid-cols-[1fr_62%]">
+      <div className="mt-14 grid items-start gap-10 md:grid-cols-[1fr_62%] [&>*]:min-w-0">
         <div>
           <h2 className="text-balance text-[32px] font-semibold leading-[1.06] tracking-[-0.02em] md:text-[44px]" style={{ fontVariationSettings: "'wdth' 112" }}>
             The driver hears it before the bus clears.

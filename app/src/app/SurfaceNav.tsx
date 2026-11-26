@@ -44,10 +44,10 @@ export function SurfaceNav({ tone = 'day', className = '', inline = false }: { t
         aria-expanded={open}
       >
         {open ? <XIcon size={14} /> : <ListIcon size={14} />}
-        <span className="font-semibold" style={{ fontVariationSettings: "'wdth' 118" }}>
+        <span className="whitespace-nowrap font-semibold" style={{ fontVariationSettings: "'wdth' 118" }}>
           SuRaksha Mesh
         </span>
-        <span className={night ? 'text-clay/60' : 'text-ink-3'}>{current?.label}</span>
+        <span className={'hidden whitespace-nowrap min-[420px]:inline ' + (night ? 'text-clay/60' : 'text-ink-3')}>{current?.label}</span>
         <kbd className={'figures ml-1 hidden px-1 text-[10px] md:inline ' + (night ? 'text-clay/45' : 'text-ink-3')} style={{ boxShadow: 'inset 0 0 0 1px currentColor' }}>
           Ctrl K
         </kbd>

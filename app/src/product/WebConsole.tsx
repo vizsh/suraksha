@@ -17,7 +17,8 @@ const RANK: Record<string, number> = { confirmed: 0, potential: 1, noticed: 2, p
 const REPAIRABLE = new Set<string>(['pothole', 'barricade', 'speed-breaker', 'debris', 'manhole', 'footpath', 'waterlogging', 'unknown'])
 
 /** City operations console: fused lane-level view, threat inspector, reports, work orders, blackspots. */
-export function WebConsole({ world }: { world: World }) {
+/** stack: on phones, map above and panel below (the full-screen ops surface only; showcase frames keep the desktop layout). */
+export function WebConsole({ world, stack = false }: { world: World; stack?: boolean }) {
   const threats = useSim((s) => s.threats)
   const feed = useSim((s) => s.feed)
   const [tab, setTab] = useState<Tab>('live')
@@ -31,11 +32,11 @@ export function WebConsole({ world }: { world: World }) {
   const current = threats.find((t) => t.id === sel) ?? feed.find((f) => f.threat.state !== 'predicted')?.threat ?? live[0]
 
   return (
-    <div className="grid h-full grid-cols-[1fr_380px] bg-clay text-ink">
-      <div className="relative min-w-0 overflow-hidden border-r border-rule">
+    <div className={'grid h-full bg-clay text-ink ' + (stack ? 'grid-rows-[42%_1fr] md:grid-cols-[1fr_380px] md:grid-rows-none' : 'grid-cols-[1fr_380px]')}>
+      <div className={'relative min-h-0 min-w-0 overflow-hidden ' + (stack ? 'border-b border-rule md:border-b-0 md:border-r' : 'border-r border-rule')}>
         <BevCanvas world={world} className="absolute inset-0" />
         <ConsoleHeader />
-        <div className="pointer-events-none absolute bottom-3 left-4 flex gap-4 text-[11px] text-ink-2">
+        <div className="pointer-events-none absolute bottom-3 left-4 right-4 flex flex-wrap gap-x-4 gap-y-1 text-[11px] text-ink-2">
           {(['confirmed', 'potential', 'predicted'] as const).map((s) => (
             <span key={s} className="flex items-center gap-1.5">
               <StateGlyph state={s} size={12} />
@@ -83,14 +84,14 @@ function ConsoleHeader() {
   const weather = useWeather((s) => s.weather)
   const remote = useEvents((s) => s.remote)
   return (
-    <div className="pointer-events-none absolute inset-x-4 top-3 flex items-baseline gap-3">
-      <span className="text-[15px] font-semibold" style={{ fontVariationSettings: "'wdth' 112" }}>
+    <div className="pointer-events-none absolute inset-x-3 top-3 flex items-baseline gap-3 bg-clay/80 px-2.5 py-1.5 backdrop-blur-[2px]" style={{ boxShadow: 'inset 0 0 0 1px rgba(28,34,38,0.12)' }}>
+      <span className="truncate text-[15px] font-semibold" style={{ fontVariationSettings: "'wdth' 112" }}>
         Jogeshwari-Vikhroli Link Road
       </span>
-      <span className="text-[11px] text-ink-3">Eastbound, lane-level fused view</span>
+      <span className="hidden whitespace-nowrap text-[11px] text-ink-3 sm:inline">Eastbound, lane-level fused view</span>
       <span className="flex-1" />
-      <span className="text-[11px] text-ink-3">{weatherWords(weather)}</span>
-      <span className="text-[11px] text-ink-3">{remote === 'on' ? 'Devices linked' : 'This browser only'}</span>
+      <span className="hidden whitespace-nowrap text-[11px] text-ink-3 lg:inline">{weatherWords(weather)}</span>
+      <span className="hidden whitespace-nowrap text-[11px] text-ink-3 md:inline">{remote === 'on' ? 'Devices linked' : 'This browser only'}</span>
     </div>
   )
 }

@@ -1,5 +1,6 @@
 // Live weather for the corridor from Open-Meteo (free, no key). Rain and low visibility
 // lengthen stopping distance in the driver feed and raise predicted-risk alerts.
+import { cachedJson } from './cachedJson'
 import { create } from 'zustand'
 
 export interface Weather {
@@ -28,8 +29,7 @@ export const useWeather = create<WeatherState>((set, get) => ({
     set({ status: 'loading' })
     try {
       const url = `https://api.open-meteo.com/v1/forecast?latitude=${POWAI.lat}&longitude=${POWAI.lon}&current=temperature_2m,precipitation,visibility,is_day,weather_code&timezone=Asia%2FKolkata`
-      const res = await fetch(url)
-      const j = await res.json()
+      const j = await cachedJson<{ current: Record<string, number> }>(url, 10 * 60_000)
       const c = j.current
       set({
         status: 'ok',

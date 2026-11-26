@@ -24,7 +24,7 @@ export default function PhoneApp() {
         <SurfaceNav />
       </div>
       <div
-        className="relative mx-auto h-[100dvh] w-full max-w-[430px] overflow-hidden bg-clay md:h-[844px] md:max-w-[390px] md:rounded-[40px]"
+        className="relative mx-auto h-[100dvh] w-full max-w-[430px] overflow-hidden bg-clay md:h-[min(844px,calc(100dvh-5rem))] md:max-w-[390px] md:rounded-[40px]"
         style={{ boxShadow: '0 40px 80px -30px rgba(40,34,26,0.45), 0 0 0 10px #1c2226' }}
       >
         <OfflineBanner />

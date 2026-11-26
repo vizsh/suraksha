@@ -36,13 +36,14 @@ export default function Twin() {
       <TwinCanvas world={world} xray={xray} isolines={isolines} labels={labels} className="absolute inset-0" />
       <SurfaceNav />
 
-      <div className="absolute right-4 top-4 z-30 flex flex-wrap items-center justify-end gap-2">
-        <div className="flex bg-clay" style={{ boxShadow: 'inset 0 0 0 1px rgba(28,34,38,0.3)' }}>
+      {/* phones: one scrollable row under the nav; desktop: top right */}
+      <div className="no-scrollbar absolute left-4 right-0 top-16 z-30 flex items-center gap-2 overflow-x-auto pr-8 md:right-4 md:pr-0 [mask-image:linear-gradient(to_right,black_82%,transparent)] md:[mask-image:none] md:left-auto md:top-4 md:flex-wrap md:justify-end md:overflow-visible">
+        <div className="flex shrink-0 bg-clay" style={{ boxShadow: 'inset 0 0 0 1px rgba(28,34,38,0.3)' }}>
           {VIEWS.map(([v, label]) => (
             <button
               key={v}
               onClick={() => setView(v)}
-              className={'px-3 py-1.5 text-[13px] transition-colors ' + (view === v ? 'bg-ink text-clay' : 'hover:bg-clay-deep')}
+              className={'whitespace-nowrap px-3 py-1.5 text-[13px] transition-colors ' + (view === v ? 'bg-ink text-clay' : 'hover:bg-clay-deep')}
             >
               {label}
             </button>
@@ -53,20 +54,20 @@ export default function Twin() {
         <Toggle on={labels} onClick={() => setLabels(!labels)} label="Labels" />
       </div>
 
-      <div className="absolute bottom-8 left-1/2 z-30 flex -translate-x-1/2 flex-wrap items-center justify-center gap-2 md:left-[calc(50%-170px)]">
-        <div className="flex bg-clay" style={{ boxShadow: 'inset 0 0 0 1px rgba(28,34,38,0.3)' }}>
+      <div className="no-scrollbar absolute bottom-8 left-4 right-0 z-30 flex items-center gap-2 overflow-x-auto pr-8 md:pr-0 [mask-image:linear-gradient(to_right,black_82%,transparent)] md:[mask-image:none] md:left-[calc(50%-170px)] md:right-auto md:-translate-x-1/2 md:flex-wrap md:justify-center md:overflow-visible">
+        <div className="flex shrink-0 bg-clay" style={{ boxShadow: 'inset 0 0 0 1px rgba(28,34,38,0.3)' }}>
           {(['day', 'dusk', 'night'] as TimeOfDay[]).map((t) => (
             <button
               key={t}
               onClick={() => atmos.setTime(t)}
-              className={'px-3 py-1.5 text-[13px] capitalize transition-colors ' + (!atmos.live && atmos.time === t ? 'bg-ink text-clay' : 'hover:bg-clay-deep')}
+              className={'whitespace-nowrap px-3 py-1.5 text-[13px] capitalize transition-colors ' + (!atmos.live && atmos.time === t ? 'bg-ink text-clay' : 'hover:bg-clay-deep')}
             >
               {t}
             </button>
           ))}
           <button
             onClick={() => atmos.goLive(weather)}
-            className={'flex items-center gap-1.5 px-3 py-1.5 text-[13px] transition-colors ' + (atmos.live ? 'bg-ink text-clay' : 'hover:bg-clay-deep')}
+            className={'flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 text-[13px] transition-colors ' + (atmos.live ? 'bg-ink text-clay' : 'hover:bg-clay-deep')}
             title="Use the real time and weather in Powai"
           >
             <span className="relative flex h-1.5 w-1.5">
@@ -116,7 +117,7 @@ export default function Twin() {
           <div className="col-span-2 border-t border-rule px-4 py-2.5">{weatherWords(weather)}</div>
         </div>
       </aside>
-      <p className="absolute bottom-2 left-4 z-20 text-[10px] text-ink-3">Map data OpenStreetMap contributors, ODbL. Vehicles and crash history simulated.</p>
+      <p className="absolute bottom-2 left-4 right-4 z-20 truncate text-[10px] text-ink-3 md:right-auto">Map data OpenStreetMap contributors, ODbL. Vehicles and crash history simulated.</p>
     </main>
   )
 }
@@ -126,7 +127,7 @@ function Toggle({ on, onClick, label }: { on: boolean; onClick: () => void; labe
     <button
       onClick={onClick}
       aria-pressed={on}
-      className="flex items-center gap-2 bg-clay px-3 py-1.5 text-[13px] hover:bg-clay-deep"
+      className="flex shrink-0 items-center gap-2 whitespace-nowrap bg-clay px-3 py-1.5 text-[13px] hover:bg-clay-deep"
       style={{ boxShadow: 'inset 0 0 0 1px rgba(28,34,38,0.3)' }}
     >
       <span className={'relative h-3 w-5 rounded-full transition-colors ' + (on ? 'bg-live' : 'bg-clay-shade')}>

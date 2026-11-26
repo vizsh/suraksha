@@ -256,10 +256,11 @@ export default function Dashcam() {
       <SurfaceNav tone="night" />
       <div className="mx-auto grid max-w-[1500px] gap-5 px-4 pb-10 pt-20 lg:grid-cols-[1fr_340px] lg:px-8">
         <section>
-          <div className="relative aspect-video w-full overflow-hidden bg-black" style={{ boxShadow: '0 0 0 1px rgba(231,227,217,0.15)' }}>
+          <div className={'relative w-full overflow-hidden bg-black ' + (source === 'none' ? 'aspect-[4/5] sm:aspect-video' : 'aspect-video')} style={{ boxShadow: '0 0 0 1px rgba(231,227,217,0.15)' }}>
             <video ref={video} muted playsInline className={'absolute inset-0 h-full w-full object-fill ' + (source === 'file' && image.current ? 'hidden' : '')} />
             {source === 'file' && image.current && <img src={image.current.src} alt="Your photo" className="absolute inset-0 h-full w-full object-fill" />}
-            <canvas ref={overlay} className="pointer-events-none absolute inset-0 h-full w-full" />
+            {/* the road-ahead zone only appears once there is a picture to put it on */}
+            <canvas ref={overlay} className={'pointer-events-none absolute inset-0 h-full w-full transition-opacity duration-500 ' + (source === 'none' ? 'opacity-0' : 'opacity-100')} />
             <canvas ref={work} className="hidden" />
             {source === 'none' && (
               <div className="absolute inset-0 grid place-items-center p-6 text-center">

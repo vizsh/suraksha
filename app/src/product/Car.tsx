@@ -95,7 +95,7 @@ export function DashScreen({ world }: { world: World }) {
         <MapOverlay world={world} center={center} radius={330} night />
       </div>
       <div className="flex flex-col gap-10 border-x border-night-rule px-14 py-12">
-        <div className="h-[132px]">
+        <div className="min-h-[132px] shrink-0">
           <AlertCapsule night xl />
         </div>
         <div className="min-h-0 flex-1">

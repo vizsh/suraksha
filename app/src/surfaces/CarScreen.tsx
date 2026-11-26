@@ -12,6 +12,9 @@ export default function CarScreen() {
         <DashScreen world={world} />
       </Contained>
       <SurfaceNav tone="night" />
+      <p className="absolute inset-x-0 bottom-8 hidden px-8 text-center text-[13px] text-clay/55 portrait:block">
+        A 1920 by 720 car display. Turn your phone sideways to see it larger.
+      </p>
     </main>
   )
 }

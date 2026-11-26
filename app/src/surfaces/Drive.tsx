@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { EyeIcon, SpeakerHighIcon, SpeakerSlashIcon, VideoCameraIcon } from '@phosphor-icons/react'
+import { CaretDownIcon, EyeIcon, SpeakerHighIcon, SpeakerSlashIcon, VideoCameraIcon } from '@phosphor-icons/react'
 import { useSim } from '../world/store'
 import { Contained, alertCopy, topAlert } from '../product/bits'
 import { HUD_H, HUD_W, Hud } from '../product/Car'
@@ -53,7 +53,7 @@ export default function Drive() {
         </button>
       </div>
       <DriverMonitor />
-      <p className="absolute bottom-2 right-4 z-30 text-[10px] text-clay/40">Simulated night drive on JVLR, Powai. Driver monitoring is real and stays on this device.</p>
+      <p className="absolute bottom-2 left-4 right-4 z-30 text-right text-[10px] text-clay/40">Simulated night drive on JVLR, Powai. Driver monitoring is real and stays on this device.</p>
     </main>
   )
 }
@@ -105,22 +105,28 @@ function DriverMonitor() {
   }, [f.eyePoints, f.eyesClosed])
 
   const running = f.status === 'running'
+  // open on wide screens; on a phone it starts as a single line so the road stays visible
+  const [open, setOpen] = useState(() => typeof window === 'undefined' || window.matchMedia('(min-width: 768px)').matches)
   const word = f.level === 'microsleep' ? 'Microsleep' : f.level === 'drowsy' ? 'Drowsy' : f.face ? 'Alert' : 'No face in view'
   const tone = f.level === 'microsleep' ? '#e0401f' : f.level === 'drowsy' ? '#d19a1c' : '#7fb6e6'
 
   return (
-    <div className="absolute left-4 top-16 z-40 w-[260px] bg-night-2/95 text-clay" style={{ boxShadow: 'inset 0 0 0 1px rgba(231,227,217,0.2)' }}>
-      <div className="flex items-center gap-2 border-b border-night-rule px-3 py-2 text-[13px]">
-        <EyeIcon size={15} />
-        Driver monitor
-        <span className="flex-1" />
+    <div className="absolute left-4 top-16 z-40 w-[min(260px,calc(100vw-2rem))] bg-night-2/95 text-clay" style={{ boxShadow: 'inset 0 0 0 1px rgba(231,227,217,0.2)' }}>
+      <div className={'flex items-center gap-2 px-3 py-2 text-[13px] ' + (open ? 'border-b border-night-rule' : '')}>
+        <button onClick={() => setOpen((v) => !v)} aria-expanded={open} className="flex flex-1 items-center gap-2 text-left">
+          <EyeIcon size={15} />
+          Driver monitor
+          {running && <span className="ml-1 h-1.5 w-1.5 rounded-full" style={{ background: tone }} />}
+          <span className="flex-1" />
+          <CaretDownIcon size={13} className={'text-clay/60 transition-transform ' + (open ? 'rotate-180' : '')} />
+        </button>
         {running ? (
           <button onClick={stopMonitor} className="text-[12px] text-clay/70 hover:text-clay">
             Stop
           </button>
         ) : null}
       </div>
-      <div className="relative aspect-[4/3] bg-black/40">
+      <div className={open ? 'relative aspect-[4/3] bg-black/40' : 'pointer-events-none absolute h-px w-px overflow-hidden opacity-0'}>
         <video ref={video} className={'h-full w-full -scale-x-100 object-cover ' + (running ? 'opacity-80' : 'opacity-0')} muted playsInline />
         <canvas ref={canvas} width={300} height={225} className="pointer-events-none absolute inset-0 h-full w-full" />
         {!running && (
@@ -140,7 +146,7 @@ function DriverMonitor() {
         )}
       </div>
       <AnimatePresence>
-        {running && (
+        {running && open && (
           <motion.dl initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="grid grid-cols-3 border-t border-night-rule text-center">
             <div className="col-span-3 border-b border-night-rule px-3 py-2 text-left">
               <dt className="sr-only">State</dt>

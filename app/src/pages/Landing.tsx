@@ -45,13 +45,23 @@ function Story() {
     }
   }, [])
   const ch = [...CHAPTERS].reverse().find((c) => p >= c.from) ?? CHAPTERS[0]
+  // labels explain the map in later chapters; the hero shot and phone-width frames stay clean
+  const [narrow, setNarrow] = useState(() => window.matchMedia('(max-width: 767px)').matches)
+  useEffect(() => {
+    const mq = window.matchMedia('(max-width: 767px)')
+    const on = () => setNarrow(mq.matches)
+    mq.addEventListener('change', on)
+    return () => mq.removeEventListener('change', on)
+  }, [])
   const i = CHAPTERS.indexOf(ch)
 
   return (
     <section ref={ref} className="relative h-[560vh]">
       <div className="sticky top-0 h-[100dvh] overflow-hidden">
-        <StoryCanvas world={world} xray={xray} className="absolute inset-0" />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-[45%] bg-gradient-to-t from-[#141a1e]/55 to-transparent" />
+        {/* its own stacking layer, so the scrim and the words always sit above the 3D labels */}
+        <StoryCanvas world={world} xray={xray} labels={i !== 0 && !narrow} className="absolute inset-0 z-0" />
+        {/* above the 3D labels (z 0-10), below the words: labels never sit on the headline */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 z-[15] h-[62%] bg-gradient-to-t from-[#141a1e]/80 via-[#141a1e]/40 to-transparent md:h-[50%] md:from-[#141a1e]/60 md:via-[#141a1e]/20" />
 
         <div className="absolute bottom-10 left-5 right-5 z-20 max-w-[620px] md:left-10">
           <AnimatePresence mode="wait">

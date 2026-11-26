@@ -82,7 +82,8 @@ export function AlertCapsule({ night = false, large = false, xl = false }: { nig
             exit={{ opacity: 0, y: 8, filter: 'blur(6px)' }}
             transition={{ type: 'spring', stiffness: 260, damping: 26 }}
             className={
-              'inline-flex items-center gap-3 rounded-full py-2 pl-3 pr-5 ' +
+              'inline-flex max-w-full items-center gap-3 py-2 pl-3 pr-5 ' +
+              (xl ? 'rounded-[40px] ' : 'rounded-full ') +
               (night ? 'bg-[#0d1113]/88 text-clay' : 'bg-clay text-ink') +
               (large ? ' gap-4 py-3 pl-4 pr-7' : '') +
               (xl ? ' gap-5 py-5 pl-6 pr-10' : '')
@@ -91,10 +92,10 @@ export function AlertCapsule({ night = false, large = false, xl = false }: { nig
           >
             <StateGlyph state={top.threat.state} size={xl ? 40 : large ? 24 : 16} night={night} />
             <span className="flex flex-col leading-tight">
-              <span className={(xl ? 'text-[44px]' : large ? 'text-[26px]' : 'text-[15px]') + ' font-semibold'} style={{ fontVariationSettings: "'wdth' 88" }}>
+              <span className={(xl ? 'text-[40px] text-balance' : large ? 'text-[26px]' : 'text-[15px]') + ' font-semibold'} style={{ fontVariationSettings: "'wdth' 88" }}>
                 {alertCopy(top).title}
               </span>
-              <span className={'figures ' + (xl ? 'mt-1 text-[24px]' : large ? 'text-[15px]' : 'text-[11px]') + (night ? ' text-clay/75' : ' text-ink-3')}>
+              <span className={'figures whitespace-nowrap ' + (xl ? 'mt-1 text-[22px]' : large ? 'text-[15px]' : 'text-[11px]') + (night ? ' text-clay/75' : ' text-ink-3')}>
                 {alertCopy(top).detail}
               </span>
             </span>

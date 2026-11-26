@@ -1,5 +1,18 @@
 # Changelog
 
+## Frontend audit and polish (2026-11-26)
+
+Every surface was captured at 1600x900, 1280x720 and 390x844 (phone), checked for overflow, clipping, overlapping panels and console errors, and fixed:
+
+- **City twin on phones:** view and layer controls are single rows that scroll sideways and fade at the edge, instead of wrapping into each other.
+- **Ops console on phones:** map above, console below; the map header no longer crowds itself.
+- **Cockpit:** the driver monitor collapses to one line on phones (the webcam keeps running when collapsed).
+- **In-dash screen:** long alerts wrap inside a rounded panel and push the road-ahead rail down instead of colliding with it. Portrait phones get a "turn sideways" hint.
+- **Phone app on laptops:** the device frame fits the window height, so its tab bar is always visible.
+- **Dashcam AI on phones:** the intro card has room for both buttons; the road-ahead zone appears only once there is a picture.
+- **Landing:** no 3D labels over the headline (hero shot and phone-width frames); the in-dash showcase no longer widens the page on phones; the nav's page name gives way to the launch button on narrow phones.
+- **Resilience:** Open-Meteo answers are cached in the browser (weather 10 min, rain forecast 30 min, elevation 30 days), with a stale answer used if the service rate-limits; satellite tiles retry once.
+
 ## Performance pass (2026-11-26)
 
 Measured on the production build (headless Chrome, 1600x900): total blocking time on the landing page fell from 9.6 s to 2.6 s, the cockpit from 6.4 s to 0.9 s, ops from 4.2 s to 1.2 s.

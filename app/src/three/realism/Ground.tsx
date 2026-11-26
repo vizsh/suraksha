@@ -62,14 +62,19 @@ export function loadSatellite(data: CorridorData): Promise<SatelliteImage> {
     for (let y = y0; y <= y1; y++)
       for (let x = x0; x <= x1; x++)
         jobs.push(async () => {
-          const img = new Image()
-          img.crossOrigin = 'anonymous'
-          img.src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${Z}/${y}/${x}`
-          try {
-            await img.decode()
-            ctx.drawImage(img, (x - x0) * 256, (y - y0) * 256)
-          } catch {
-            /* a missing tile stays neutral */
+          // one retry: a rate-limited tile would otherwise leave a grey square in the city
+          for (let attempt = 0; attempt < 2; attempt++) {
+            const img = new Image()
+            img.crossOrigin = 'anonymous'
+            img.src = `https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/${Z}/${y}/${x}`
+            try {
+              await img.decode()
+              ctx.drawImage(img, (x - x0) * 256, (y - y0) * 256)
+              return
+            } catch {
+              if (attempt === 0) await new Promise((r) => setTimeout(r, 700))
+              /* a missing tile stays neutral */
+            }
           }
         })
     // eight at a time
