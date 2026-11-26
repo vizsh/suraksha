@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="docs/images/hero.jpg" alt="SuRaksha Mesh: the Powai corridor as a live 3D twin with satellite imagery, survey risk terrain and threat benchmarks" width="100%" />
+<img src="docs/images/hero.jpg" alt="SuRaksha Mesh: Powai lake and JVLR in Mumbai as a live 3D twin on real satellite imagery, with 3D buildings, roadside trees and threat benchmarks" width="100%" />
 
 # SuRaksha Mesh
 
@@ -17,7 +17,7 @@ A virtual V2X network that turns the cars and phones already on Indian roads int
 
 **Maruti Suzuki Innovation × IIT Bombay E-Summit Ideathon 2026** · AI, IoT and Intelligent Urban Mobility
 
-[The problem](#the-problem) · [The product](#the-product) · [How it works](#how-it-works) · [The engine](#the-threat-intelligence-engine) · [Run it](#run-it) · [Docs](#documentation)
+[The problem](#the-problem) · [Features](#features) · [Impact](#impact) · [The product](#the-product) · [How it works](#how-it-works) · [The engine](#the-threat-intelligence-engine) · [Run it](#run-it) · [Docs](#documentation)
 
 </div>
 
@@ -45,11 +45,108 @@ A driver sees about 100 metres. **Some car nearby has usually already seen the d
 | **Sees what nobody named** | Three different cars swerving at one spot become an "unknown obstacle". |
 | **Closes the loop** | Hazards become ranked city work orders; passing cars verify the repair. |
 
+<img src="docs/images/hero-corridor.jpg" alt="Descending over Powai lake toward JVLR with the barricade site marked" width="100%" />
+
+---
+
+## Features
+
+Everything below runs in the prototype today. Routes are in brackets; press `Ctrl/Cmd + K` anywhere to jump.
+
+### For drivers
+
+| Feature | What it does |
+|---|---|
+| **Road Ahead** (`/drive`, `/car`, `/app`) | Only what is on your route, in or next to your lane, within the next minute, ranked critical, advisory or info by stopping distance, and longer in rain |
+| **Confidence-aware alerts** | Confirmed hazards are named ("Unmarked barricade, lane 1, 54 m"); single reports are said as "possible"; predicted risks name their history |
+| **See-through view** | When the car ahead sees what you cannot, its view appears in your windshield display |
+| **Lane guidance** | "Bus stopped in lane 1 ahead. Move to lane 2" before the last second |
+| **Voice and directional chimes** | Spoken alerts; the chime comes from the side of the road the threat is on |
+| **Driver monitoring** | Webcam fatigue detection on device (eye closure, microsleep, yawns); a microsleep also warns cars nearby |
+| **Safer route** | Real routes compared by risk per km, not only time, with the hazards on each named |
+| **Monsoon warning** | Waterlogging advisories at low points before heavy rain arrives |
+
+### For residents and every phone
+
+| Feature | What it does |
+|---|---|
+| **Dashcam AI** (`/dashcam`) | The phone camera, or a dashcam video, detects people, animals, potholes, barricades and water on device; only the result is shared |
+| **Phone as a road sensor** (`/app`) | Accelerometer jolts become pothole reports, matched to the right lane |
+| **Photo reports** | Report a pothole, barricade, broken footpath, open manhole or waterlogging in three taps, then follow its status from "noticed" to "repaired" |
+| **Street Guardian points** | 20 points per report, 50 more when the network confirms it |
+| **Works offline** | Installable app; reports made without signal are queued and sent later |
+
+### For the city
+
+| Feature | What it does |
+|---|---|
+| **Operations console** (`/ops`) | Lane-level fused view, every threat with its sources and confidence, incoming reports with photos |
+| **Work orders and repair verification** | Dispatch a crew, mark it repaired; passing cars confirm the road is clear |
+| **Blackspots** | Ranked predicted-risk segments from road geometry and crash history |
+| **Monsoon watch** | 6-hour rain forecast over the lowest road points, with a rehearsal mode |
+| **Export** | GeoJSON and CSV of live threats and work orders for municipal systems |
+
+### The network underneath
+
+| Feature | What it does |
+|---|---|
+| **Threat Intelligence Engine** | Groups reports by place and kind, fuses independent sources, decays stale evidence, runs the lifecycle noticed → potential → confirmed → resolved |
+| **Sees what nobody named** | Three different cars swerving at one spot become an "unknown obstacle" |
+| **Map matching** | Every report snapped to its carriageway and lane |
+| **One clock, every device** | A phone, a laptop and a projector show the same scenario second without pairing; reports sync across devices on Vercel |
+
+### For the demo and the jury
+
+| Feature | What it does |
+|---|---|
+| **City twin** (`/twin`) | Real satellite imagery of Powai, 352 OSM buildings, X-ray sensor wave, risk terrain, near-miss heat, day, dusk, night, rain and "Live Powai" weather |
+| **Scroll story** (`/`) | One continuous camera move from the city to street level while the scenario plays |
+| **Fusion Lab** | Add evidence and watch the real engine decide, with an autoplay for the pitch |
+| **One car vs the network** | Drag a divider between what your car sees and what the network knows |
+| **Director** (`/director`) | Scenario clock, story beats, QR code for the jury's phones |
+
+---
+
+## Impact
+
+### What earlier warning buys
+
+In the prototype's own scenario, the car ahead and an oncoming car confirm the pedestrian behind the bus **4.6 seconds before the driver's own camera can see them** (22.9 s against 27.5 s). At 40 km/h that is about **51 metres** of extra warning, roughly twice the 26 metres a car needs to react and stop on a dry road. The same holds for a barricade around a curve or a pothole under water: the hazard is known before it is visible.
+
+### Why it can scale in India
+
+| Barrier today | How SuRaksha Mesh gets around it |
+|---|---|
+| Roadside V2X units are expensive and years away | Uses cars and phones already on the road; the network is software |
+| Hazard reports are noisy and easy to ignore | Fusion needs independent sources; single reports are said softly; stale ones fade |
+| Cities learn about potholes from complaints, late | A ranked, evidence-backed work queue, and passing cars verify the repair |
+| Monsoon flooding surprises drivers every year | Forecast over measured low points warns before the water arrives |
+| Pedestrians are hit where footpaths end | Predicted risk at bus-stop crossings and junctions; warnings before a person is visible |
+
+### Who it pays off for
+
+- **Drivers:** fewer surprises, warnings that are rarely wrong, a safety score that rewards smooth driving.
+- **Maruti Suzuki:** an ADAS-style safety feature for every Suzuki Connect car with no added hardware; road intelligence from the largest connected fleet in India; a reason to stay connected.
+- **Cities and NHAI:** a live map of road defects with evidence, repair verification, and blackspot data for engineering fixes.
+- **Residents and pedestrians:** a channel that turns a photo into a repair, and warnings to drivers where footpaths end.
+
+### How a pilot would measure it
+
+These are the metrics to track on one corridor; they are targets to measure, not results claimed.
+
+| Metric | How it is measured |
+|---|---|
+| Warning lead time | Seconds between network confirmation and the driver's own camera detection |
+| Harsh braking near confirmed hazards | Connected-car telematics before and after alerts are enabled |
+| False alert rate | Confirmed threats later cleared by passing cars without a repair |
+| Time from report to repair | Citizen report timestamp to crew "repaired" plus pass-by verification |
+| Coverage | Share of corridor kilometres seen by at least two sources per hour |
+
 ---
 
 ## The product
 
-One shared world, seven live surfaces. Every device follows the same scenario second, so a phone, a laptop and a projector agree without pairing.
+One shared world, eight live surfaces. Every device follows the same scenario second, so a phone, a laptop and a projector agree without pairing.
 
 <table>
 <tr>
@@ -100,7 +197,8 @@ One shared world, seven live surfaces. Every device follows the same scenario se
 | OpenStreetMap roads, lanes, 352 buildings, signals and bus stops of Powai | Crash history behind the predicted risk zones (labelled synthetic) |
 | Esri satellite imagery; Google photoreal 3D tiles when a key is set | Resident reports and swerve events inside the scripted scenario |
 | Live weather from Open-Meteo (rain lengthens stopping distance) | |
-| Webcam fatigue detection (MediaPipe, on device), phone accelerometer, camera reports | |
+| Webcam fatigue detection and Dashcam AI object and road-surface detection (on device) | |
+| Phone accelerometer, camera reports, offline outbox, OSRM routes, Open-Meteo rain forecast and elevation | |
 
 ---
 
