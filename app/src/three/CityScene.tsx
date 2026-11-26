@@ -9,7 +9,10 @@ import { simTime } from '../world/clock'
 import { useSim, type ThreatView } from '../world/store'
 import { Fleet } from './realism/Fleet'
 import { Walkers } from './realism/Walkers'
-import { BarricadeSet, Lamps, Pothole, Trees, useSurfaceMaterials } from './realism/Street'
+import { BarricadeSet, Lamps, Pothole, useSurfaceMaterials } from './realism/Street'
+import { Trees } from './realism/Trees'
+import { Signals } from './realism/Signals'
+import { Shelters } from './realism/Shelters'
 import { GOOGLE_KEY, SatelliteGround } from './realism/Ground'
 const GoogleTiles = lazy(() => import('./realism/GoogleTiles'))
 import { Rain } from './realism/Rain'
@@ -131,6 +134,8 @@ export function CityScene({
             <Trees world={world} night={night} />
           </Suspense>
           <Lamps world={world} night={night} />
+          <Signals world={world} night={night} />
+          <Shelters world={world} night={night} />
         </>
       )}
       <mesh geometry={geo.lanes.dash} visible={!lidar}>

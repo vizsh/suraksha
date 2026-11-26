@@ -4,6 +4,7 @@
 import { buildRisk, chainRoad, type CorridorData, type Path, type RiskField, type V2 } from './corridor'
 import { LOOP } from './clock'
 import type { HazardKind, Observation } from '../engine/types'
+import { buildJunctions, simulateTraffic, type AmbientCar, type Junction } from './traffic'
 
 export { LOOP }
 
@@ -16,6 +17,7 @@ export interface Agent {
   heading: number
   connected: boolean
   role?: 'ego' | 'scout' | 'ambient'
+  brake?: boolean // brake lights on
 }
 
 /** A scripted sensor report, timed in seconds into the loop (negative = before the loop, e.g. history). */
@@ -49,6 +51,8 @@ export interface World {
   script: ScriptObs[]
   manoeuvres: ScriptManoeuvre[]
   zones: RiskZone[]
+  junctions: Junction[]
+  traffic: AmbientCar[]
 }
 
 export const EGO_PLATE = 'MH-02 EV 4471'
@@ -193,7 +197,33 @@ export function buildWorld(data: CorridorData): World {
     zones.push({ id: `zone-${zones.length}`, pos: pk.p, value: pk.value, label, why })
   }
 
-  return { data, path, path2, risk, sStart, egoS, scoutS, script, manoeuvres, zones }
+  // background traffic: same random draw as before, so car a3 is still car a3
+  const rr = rand(47)
+  const kinds: AgentKind[] = ['car', 'car', 'car', 'auto', 'bike', 'car', 'bike', 'car', 'auto']
+  const lanes = [-3.5, 0, 3.5]
+  // the first 46 are the original cars (the story's message arcs name some of them); 18 more fill the queues
+  const specs = Array.from({ length: 64 }, (_, i) => ({
+    s0: rr() * 2000,
+    v: 8 + rr() * 5,
+    lane: lanes[i % 3],
+    kind: kinds[i % kinds.length] as AmbientCar['kind'],
+    opposite: i % 2 === 1 && path2 !== null,
+  }))
+  const signals = data.points.filter((f) => f.kind === 'traffic_signals')
+  const junctions = buildJunctions(signals, path, path2, [egoS, scoutS])
+  const traffic = simulateTraffic(
+    specs,
+    path,
+    path2,
+    junctions,
+    [
+      { s: egoS, lane: egoOffset },
+      { s: scoutS, lane: () => 0 },
+    ],
+    LOOP,
+  )
+
+  return { data, path, path2, risk, sStart, egoS, scoutS, script, manoeuvres, zones, junctions, traffic }
 }
 
 /** Ego starts in the kerb lane and moves to lane 2 when the network flags the bus stop ahead. */
@@ -225,34 +255,29 @@ export function waveRadius(t: number) {
 }
 
 const AGENTS: Agent[] = []
-let ambient: { s0: number; v: number; lane: number; kind: AgentKind; opposite: boolean }[] | null = null
 
 export function sampleAgents(w: World, t: number): Agent[] {
   const { path, sStart } = w
-  if (!ambient) {
-    const r = rand(47)
-    ambient = []
-    const kinds: AgentKind[] = ['car', 'car', 'car', 'auto', 'bike', 'car', 'bike', 'car', 'auto']
-    const lanes = [-3.5, 0, 3.5]
-    for (let i = 0; i < 46; i++) {
-      const opposite = i % 2 === 1 && w.path2 !== null
-      ambient.push({ s0: r() * 2000, v: 8 + r() * 5, lane: lanes[i % 3], kind: kinds[i % kinds.length], opposite })
-    }
-  }
   AGENTS.length = 0
-  const put = (id: string, kind: AgentKind, s: number, off: number, connected: boolean, role?: Agent['role'], on: Path = path) => {
+  const put = (id: string, kind: AgentKind, s: number, off: number, connected: boolean, role?: Agent['role'], on: Path = path, brake = false) => {
     const p = on.at(s, off)
-    AGENTS.push({ id, kind, x: p.x, z: p.z, heading: p.heading, connected, role })
+    AGENTS.push({ id, kind, x: p.x, z: p.z, heading: p.heading, connected, role, brake })
   }
-  put('ego', 'car', lookup(w.egoS, t), egoOffset(t), true, 'ego')
-  put('scout', 'car', lookup(w.scoutS, t), 0, true, 'scout')
+  const braking = (tab: Float32Array) => {
+    const a = lookup(tab, Math.max(0, t - 0.15))
+    const b = lookup(tab, t)
+    const c = lookup(tab, Math.min(LOOP - 0.01, t + 0.15))
+    return (c - b - (b - a)) / (0.15 * 0.15) < -1
+  }
+  put('ego', 'car', lookup(w.egoS, t), egoOffset(t), true, 'ego', path, braking(w.egoS))
+  put('scout', 'car', lookup(w.scoutS, t), 0, true, 'scout', path, braking(w.scoutS))
   put('bus', 'bus', sStart + BUS_S, -5.2, false)
   const k = ramp(t, PED_T0, PED_T1)
   if (t > PED_T0 - 2 && t < PED_T1 + 3) put('ped', 'ped', sStart + BUS_S + 7.5, -10 + 14 * k, false)
   for (let i = 0; i < 6; i++) put(`cone${i}`, 'cone', sStart + BARRICADE_S - 4 + i * 2.2, -5.4 + i * 0.6, false)
-  ambient.forEach((a, i) => {
-    const s = a.s0 + a.v * t
-    put(`a${i}`, a.kind, s, a.lane, i % 3 === 0, 'ambient', a.opposite && w.path2 ? w.path2 : path)
+  w.traffic.forEach((a, i) => {
+    const k = Math.min(a.s.length - 1, Math.round(t / DT))
+    put(`a${i}`, a.kind, lookup(a.s, t), a.lane, i % 3 === 0, 'ambient', a.opposite && w.path2 ? w.path2 : path, a.brake[k] === 1)
   })
   return AGENTS
 }

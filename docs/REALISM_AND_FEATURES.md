@@ -26,6 +26,15 @@ Fixed in this pass: pedestrians walked backwards. The crossing pedestrian was ro
 
 Each item keeps the current budget: the twin holds 55+ fps and under 1.5 s of blocking time on the production build. Everything repeated is instanced, and anything large has a distance cut-off.
 
+**Status (2026-11-27):** the first slice is built: items 1, 2 and 3, the zebra crossings and stop lines from item 4, and brake lights from item 9. It is all procedural, with no new downloads. What changed:
+
+- **People:** the CesiumMan model is kept, but its texture (Cesium's logo and suit) is replaced by clothes coloured by body region: skin, shirt, trousers, shoes and hair, with Indian skin tones. The crossing pedestrian looks right, then left, before stepping out. People wait at the bus shelters near the story and glance up the road. Still to do: a second rigged model for body and clothing variety (for example the CC0 Quaternius set, which needs a download).
+- **Trees:** rain tree, gulmohar and ashoka, built from leaf cards with painted leaves, crown-shaped shading, alpha-cut shadows and wind sway. Trees keep clear of shelters and junctions.
+- **Signals:** the 12 signal nodes merge into 3 junctions, 2 of them on JVLR. Each JVLR junction has a mast-arm signal over the lanes, a far-side pole, heads for the cross street, a stop line and a zebra crossing. The cycle is 24 s, offset so your car and the car ahead always meet green, which keeps the story's timing unchanged.
+- **Traffic:** the background cars (now 64) run a car-following model computed once per world. They slow for the car ahead, stop and queue at red, pull away on green, and show brake lights. Tests check that none runs a red and none drives through another.
+- **Bus shelters:** a BEST-style shelter at each of the 30 or so stops, with a red route sign and an advert panel lit at night.
+- **Cost:** the twin still runs at 90+ fps; blocking time on load stays within the run-to-run range of the previous build.
+
 **Tier 1: biggest difference, lowest risk (about 1 week)**
 
 1. **People that behave like people.**

@@ -376,6 +376,8 @@ function TwinCamera({ world }: { world: World }) {
   useFrame(() => {
     const c = ref.current
     if (!c) return
+    // development only: lets visual checks point the camera anywhere from the console
+    if (import.meta.env.DEV) (window as unknown as { __twin?: unknown }).__twin = { controls: c, world }
     if (film) {
       void c.setLookAt(...filmCamera(world, simTime()), false)
       return

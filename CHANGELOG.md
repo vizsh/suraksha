@@ -1,5 +1,14 @@
 # Changelog
 
+## Realism, first slice (2026-11-27)
+
+- **People in clothes:** the walking figure's texture carried Cesium's logo and suit; walkers are now drawn in clothes, with skin, shirt, trousers, shoes and hair coloured by body region. The pedestrian behind the bus looks right, then left, at the kerb before crossing. People wait at the bus shelters near the story and glance up the road.
+- **Trees:** rain tree, gulmohar and ashoka replace the faceted balls, built from leaf cards with painted leaves, soft crown shading, alpha-cut shadows and a light wind sway.
+- **Traffic signals:** working signals at the map's junctions, with a mast arm over the JVLR lanes, cross-street heads, a stop line and a zebra crossing. The cycle is timed so the scripted cars always meet green and the story is unchanged.
+- **Traffic that obeys them:** background cars (now 64) follow the car ahead, stop and queue at red, pull away on green, and light their brake lights. Your car and the car ahead show brake lights when they slow. Tests cover signal timing, red lights and spacing (47 tests).
+- **Bus shelters:** at the map's bus stops, with the red route sign and an advert panel lit at night.
+- **Development:** in dev builds, `window.__twin` exposes the twin's camera controls, for visual checks from the console.
+
 ## Walking fix and next plans (2026-11-26)
 
 - **Pedestrians no longer walk backwards.** The pedestrian crossing behind the bus faced the wrong way (rotated +90° instead of −90° from the road), and every walker's stride ran at the wrong speed, so feet skated. The walk cycle now runs at ground speed ÷ 0.83 m/s, measured from the model's planted foot, and the crossing pedestrian stands still while waiting at the kerb instead of walking in place.

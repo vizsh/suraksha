@@ -7,6 +7,7 @@ import { mergeGeometries } from 'three/examples/jsm/utils/BufferGeometryUtils.js
 import type { World } from '../../world/scenario'
 import { BARRICADE_S, POTHOLE_S } from '../../world/scenario'
 import { onAnyRoad, roadsidePoints } from '../geometry'
+import { shelterSpots } from './Shelters'
 
 // ---------- PBR surfaces (Poly Haven, CC0) ----------
 
@@ -152,53 +153,13 @@ export function treePoints(world: World) {
     const out = raw.filter(
       (p) =>
         !boxes.some((b) => p.x >= b.x0 && p.x <= b.x1 && p.z >= b.z0 && p.z <= b.z1 && pointInPoly(p.x, p.z, b.pts)) &&
-        !onAnyRoad(world.data, p.x, p.z, 2.2),
+        !onAnyRoad(world.data, p.x, p.z, 2.2) &&
+        // keep clear of bus shelters and of the signal poles and crossings at junctions
+        !shelterSpots(world).some((q) => Math.hypot(q.x - p.x, q.z - p.z) < 5) &&
+        !world.junctions.some((j) => Math.hypot(j.p[0] - p.x, j.p[1] - p.z) < 26),
     )
     treeCache.set(world, out)
     return out
-}
-
-export function Trees({ world, night }: { world: World; night: boolean }) {
-  const pts = useMemo(() => treePoints(world), [world])
-  const { trunk, crown } = useMemo(() => {
-    const trunk = new THREE.CylinderGeometry(0.16, 0.26, 3.4, 7).translate(0, 1.7, 0)
-    const a = new THREE.IcosahedronGeometry(2.4, 1).translate(0, 4.6, 0)
-    const b = new THREE.IcosahedronGeometry(1.8, 1).translate(1.1, 5.4, 0.4)
-    const c = new THREE.IcosahedronGeometry(1.7, 1).translate(-0.9, 5.2, -0.6)
-    const crown = mergeGeometries([a.toNonIndexed(), b.toNonIndexed(), c.toNonIndexed()])!
-    // jitter vertices so the crowns read as foliage, not polyhedra
-    const p = crown.getAttribute('position') as THREE.BufferAttribute
-    for (let i = 0; i < p.count; i++) {
-      const k = 1 + (Math.sin(p.getX(i) * 3.1 + p.getZ(i) * 2.3) * 0.5 + 0.5) * 0.18
-      p.setXYZ(i, p.getX(i) * k, 4.6 + (p.getY(i) - 4.6) * k, p.getZ(i) * k)
-    }
-    crown.computeVertexNormals()
-    return { trunk, crown }
-  }, [])
-  const setup = (r: THREE.InstancedMesh | null, colored: boolean) => {
-    if (!r) return
-    const m = new THREE.Matrix4()
-    const c = new THREE.Color()
-    pts.forEach((p, i) => {
-      const s = 0.8 + ((i * 37) % 10) / 22
-      m.compose(new THREE.Vector3(p.x, 0, p.z), new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), i * 1.7), new THREE.Vector3(s, s, s))
-      r.setMatrixAt(i, m)
-      if (colored) r.setColorAt(i, c.setHSL(0.25 + ((i * 13) % 10) / 160, 0.45, night ? 0.06 : 0.13 + ((i * 7) % 10) / 160))
-    })
-    r.count = pts.length
-    r.instanceMatrix.needsUpdate = true
-    if (r.instanceColor) r.instanceColor.needsUpdate = true
-  }
-  return (
-    <group>
-      <instancedMesh ref={(r) => setup(r, false)} args={[trunk, undefined, pts.length]} castShadow frustumCulled={false}>
-        <meshStandardMaterial color="#4a3b2e" roughness={0.95} />
-      </instancedMesh>
-      <instancedMesh ref={(r) => setup(r, true)} args={[crown, undefined, pts.length]} castShadow receiveShadow frustumCulled={false}>
-        <meshStandardMaterial roughness={0.9} flatShading />
-      </instancedMesh>
-    </group>
-  )
 }
 
 // ---------- The overnight barricade set ----------

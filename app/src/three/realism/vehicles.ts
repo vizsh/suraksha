@@ -142,6 +142,24 @@ export function vehicleModels(): Record<VariantKey, Model> {
 /** Factory paint shades that read as real cars on Indian roads: whites, silvers, greys, a few colours. */
 export const PAINTS = ['#f2f1ee', '#e9e9e7', '#b9bcbf', '#8d9195', '#4b4f54', '#1f2226', '#a32a2a', '#2f4a73', '#c9b48f', '#f4f3f0', '#d7d8d6']
 
+/** Tail lamps glow brighter per instance: the instance colour's red channel scales the glow (0.3 cruising, 1 braking). */
+function brakeLamp(night: boolean) {
+  const m = new THREE.MeshStandardMaterial({ color: '#7a0d0d', emissive: '#ff2a1a', emissiveIntensity: night ? 11 : 1.6 })
+  m.onBeforeCompile = (sh) => {
+    sh.fragmentShader = sh.fragmentShader.replace(
+      '#include <emissivemap_fragment>',
+      `#include <emissivemap_fragment>
+#ifdef USE_INSTANCING_COLOR
+  totalEmissiveRadiance *= vColor.r;
+#endif`,
+    )
+  }
+  m.customProgramCacheKey = () => 'brake-lamp'
+  return m
+}
+
+export const TAIL_CRUISE = 0.3
+
 export function makeMaterials(night: boolean): Record<PartKind, THREE.Material> {
   return {
     paint: new THREE.MeshPhysicalMaterial({ color: '#ffffff', metalness: 0.45, roughness: 0.32, clearcoat: 1, clearcoatRoughness: 0.08 }),
@@ -149,7 +167,7 @@ export function makeMaterials(night: boolean): Record<PartKind, THREE.Material> 
     tyre: new THREE.MeshStandardMaterial({ color: '#141516', roughness: 0.9 }),
     rim: new THREE.MeshStandardMaterial({ color: '#b8bcc0', metalness: 1, roughness: 0.3 }),
     head: new THREE.MeshStandardMaterial({ color: '#f7f4ea', emissive: '#fff6df', emissiveIntensity: night ? 6 : 0.4 }),
-    tail: new THREE.MeshStandardMaterial({ color: '#7a0d0d', emissive: '#ff2a1a', emissiveIntensity: night ? 4 : 0.3 }),
+    tail: brakeLamp(night),
     trim: new THREE.MeshStandardMaterial({ color: '#1b1d1f', roughness: 0.6, metalness: 0.2 }),
     accent: new THREE.MeshStandardMaterial({ color: '#f2c21b', roughness: 0.5, emissive: '#ffb84d', emissiveIntensity: night ? 0.6 : 0 }),
     rider: new THREE.MeshStandardMaterial({ color: '#3b4046', roughness: 0.85 }),

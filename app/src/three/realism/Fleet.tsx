@@ -6,7 +6,7 @@ import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 import { sampleAgents, type Agent, type World } from '../../world/scenario'
 import { simTime } from '../../world/clock'
-import { PAINTS, makeMaterials, vehicleModels, type PartKind, type VariantKey } from './vehicles'
+import { PAINTS, TAIL_CRUISE, makeMaterials, vehicleModels, type PartKind, type VariantKey } from './vehicles'
 
 const MAX: Record<VariantKey, number> = { hatch: 40, sedan: 30, suv: 24, bus: 4, auto: 20, bike: 20 }
 const BEST_RED = '#c8261f'
@@ -60,6 +60,7 @@ export function Fleet({ world, night = false, rings = true, hide }: { world: Wor
         if (!m) continue
         m.setMatrixAt(i, tmp.matrix)
         if (part === 'paint') m.setColorAt(i, col.set(paint))
+        else if (part === 'tail') m.setColorAt(i, col.setScalar(a.brake ? 1 : TAIL_CRUISE))
       }
       if (rings && a.connected && ringRef.current && rc < 64) {
         tmp.position.y = 0.12
@@ -93,7 +94,10 @@ export function Fleet({ world, night = false, rings = true, hide }: { world: Wor
           <instancedMesh
             key={`${v}:${part}`}
             ref={(r) => {
-              if (r) refs.current[`${v}:${part}`] = r
+              if (!r) return
+              refs.current[`${v}:${part}`] = r
+              // per-instance colour from the start, so the shader is compiled with it before the first frame
+              if ((part === 'paint' || part === 'tail') && !r.instanceColor) r.setColorAt(0, new THREE.Color(1, 1, 1))
             }}
             args={[geo, mats[part], MAX[v]]}
             castShadow={part === 'paint' || part === 'trim' || part === 'accent'}
