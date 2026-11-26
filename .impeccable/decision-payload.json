@@ -1,0 +1,133 @@
+{
+  "title": "SuRaksha Mesh: choose the visual world",
+  "question": "One world carries the city twin, corridor BEV, X-ray mode, cockpit HUD and phone app. Keep the roll, take an alternate, or re-roll.",
+  "options": [
+    {
+      "id": "assigned",
+      "label": "Live Survey Sheet",
+      "kicker": "THE ROLL",
+      "lineage": "Survey of India toposheets, translated into a live 3D clay-model twin",
+      "thesis": "Road risk drawn the way surveyors draw terrain: contour isolines of danger over a white clay city, threats placed as survey benchmarks.",
+      "palette": ["#E7E3D9", "#1C2226", "#E0401F", "#D19A1C", "#1F6FB2", "#6B4FA0", "#B4562B"],
+      "materials": ["matte white clay massing model of the real city", "survey linework: risk isolines, benchmark triangles, graduated frame edge only (no background grid)", "Mona Sans variable width with Martian Mono figures"],
+      "viewport": "Full-bleed clay-white 3D corridor in raking light; violet risk isolines around a free-left turn; a vermilion benchmark pulsing over a hidden pedestrian; a sheet-title block carries corridor, scale and live counters.",
+      "risk": "Reads as a printed map rather than a live system if motion and depth are timid; the night cockpit must invert the sheet without falling into neon.",
+      "raised": [
+        {"from": "challenger-saville-sleeve", "raise": "One plot owns each view: the corridor risk ridgeline (risk by hour) is the only chart on the city sheet."},
+        {"from": "challenger-botanical-folio", "raise": "The threat lifecycle shows as same-scale registered plates: noticed, potential, confirmed, resolved."},
+        {"from": "challenger-dev-console", "raise": "Irreversible actions (broadcast critical alert, dispatch work order) stand alone with deliberate empty space."}
+      ],
+      "comp": ".impeccable/mocks/decision/assigned.webp"
+    },
+    {
+      "id": "model-pick",
+      "label": "Glass Cockpit / TCAS",
+      "kicker": "IMPECCABLE’S PICK",
+      "lineage": "airliner EFIS displays and TCAS traffic symbology",
+      "thesis": "Every car is traffic on a collision-avoidance display: threat state carried by symbol shape (hollow diamond, filled diamond, amber circle, red square).",
+      "palette": ["#06090B", "#E9EEF0", "#24D3E6", "#F2A900", "#FF3B30", "#C04BE0"],
+      "materials": ["black glass with photographic depth", "shape-coded traffic symbology", "range rings around the ego car"],
+      "viewport": "Black glass, the ego car centred in range rings, nearby cars as traffic symbols, the street fading in behind as X-ray depth.",
+      "risk": "The most familiar route: closest to the dark-neon dashboard look most runs in this category ship.",
+      "comp": ".impeccable/mocks/decision/model-pick.webp"
+    },
+    {
+      "id": "challenger-emission-rail",
+      "label": "Sodium Line Rail",
+      "verdict": "competitive",
+      "lineage": "glass spectrograms on a light box, and sodium-vapour street lighting",
+      "thesis": "Threat state carried by line form, not colour: solid confirmed, dashed potential, half-height stale, doubled sodium yellow for critical.",
+      "palette": ["#1E1F21", "#E8E2D4", "#F5B21A", "#E0453A", "#3FA9C9", "#7A5AC8"],
+      "materials": ["procedural charcoal continuum", "hairline emission lines", "one off-centre calibrated distance rail"],
+      "viewport": "Charcoal night road, each upcoming threat a hairline on a distance rail; the critical one doubled in sodium yellow.",
+      "case": "Wins on clarity (state readable without colour, ideal in-car) but drivers and juries do not recognise spectrograms.",
+      "risk": "Can read abstract and cold on the 3D city views.",
+      "comp": ".impeccable/mocks/decision/challenger-emission-rail.webp",
+      "hero": "https://impeccable.style/worlds/cards/operate-c-emission-line-rail-hero.webp",
+      "board": "https://impeccable.style/worlds/cards/operate-c-emission-line-rail.webp"
+    },
+    {
+      "id": "challenger-dev-console",
+      "label": "Graphite Console",
+      "verdict": "declined",
+      "lineage": "dark-first developer consoles",
+      "thesis": "Graphite panels split by hairline seams, accents only for state.",
+      "palette": ["#16181B", "#2A2E33", "#D7DCE0", "#5AB0FF"],
+      "materials": ["hairline seams", "persistent tiled panels"],
+      "viewport": "Tiled persistent panels around a map.",
+      "case": "Loses on audience (generic ops look) and adds nothing to clarity.",
+      "risk": "It is the rut the brief rejects.",
+      "kept": "Irreversible actions isolated by empty space.",
+      "hero": "https://impeccable.style/worlds/cards/digital-design-canon-dark-first-developer-console-hero.webp"
+    },
+    {
+      "id": "challenger-saville-sleeve",
+      "label": "Catalog Sleeve",
+      "verdict": "declined",
+      "lineage": "Factory Records sleeves, pulsar plots",
+      "thesis": "Matte black, one white-line pulse plot owns the field.",
+      "palette": ["#0B0B0B", "#F2F2F2", "#E23B2E", "#2F7DD1"],
+      "materials": ["white hairline plot", "colour-code strips"],
+      "viewport": "One stacked pulse plot of corridor risk.",
+      "case": "Coded labels hurt clarity; the audience does not identify with it.",
+      "risk": "Cryptic in a 7-minute pitch.",
+      "kept": "One plot owns each view (corridor risk ridgeline).",
+      "hero": "https://impeccable.style/worlds/cards/brand-identity-canon-saville-catalog-sleeve-hero.webp"
+    },
+    {
+      "id": "challenger-botanical-folio",
+      "label": "Botanical Folio",
+      "verdict": "declined",
+      "lineage": "seasonal botanical plates",
+      "thesis": "One subject through its stages at fixed scale.",
+      "palette": ["#F1EADB", "#2F5B34", "#B8322A", "#6E6A63"],
+      "materials": ["registered plates", "engraved captions"],
+      "viewport": "Five same-scale plates in a row.",
+      "case": "A cream editorial world does not fit drivers or operators.",
+      "risk": "Reads slow and decorative.",
+      "kept": "Threat lifecycle as registered same-scale plates.",
+      "hero": "https://impeccable.style/worlds/cards/editorial-sequence-montage-botanical-folio-season-hero.webp"
+    },
+    {
+      "id": "challenger-zoo-map",
+      "label": "Guide Map Lobes",
+      "verdict": "declined",
+      "lineage": "zoo and gardens guide maps",
+      "thesis": "Flat colour lobes divided by coastlines.",
+      "palette": ["#8ED462", "#F5F1E4", "#2C2E2A", "#FF705D"],
+      "materials": ["flat colour", "SVG coastline morphs"],
+      "viewport": "One swelling lobe per screen.",
+      "case": "Playful tone contradicts road safety; loses both axes.",
+      "risk": "Trivialises fatalities.",
+      "kept": "One geometry drives layout and state (risk isolines also clip the layers).",
+      "hero": "https://impeccable.style/worlds/cards/aww2-zoo-gardens-guide-map-hero.webp"
+    },
+    {
+      "id": "challenger-character-catalog",
+      "label": "Character Roster",
+      "verdict": "declined",
+      "lineage": "character goods catalogs",
+      "thesis": "A ranked roster with fixed furniture per entry.",
+      "palette": ["#FBE3EC", "#FFFFFF", "#333333", "#FFB347"],
+      "materials": ["rounded cells", "name plates"],
+      "viewport": "Ranked pastel grid.",
+      "case": "Tone mismatch; loses both axes.",
+      "risk": "Unserious.",
+      "kept": "Blackspot segments as a ranked finite roster, each with first-reported date and a one-line note.",
+      "hero": "https://impeccable.style/worlds/cards/pop-culture-shelf-character-goods-catalog-hero.webp"
+    }
+  ],
+  "reroll": {"registers": ["safer", "bolder"]},
+  "buildPath": {"value": "code", "toggle": true},
+  "canon": true,
+  "canonCard": {
+    "label": "Smart-city command centre",
+    "thesis": "What this category ships: navy-black dashboards, neon cyan accents, glowing map, KPI tiles.",
+    "palette": ["#0A1020", "#121A2E", "#00E5FF", "#FF2D55"],
+    "materials": ["glow", "KPI tiles", "dark basemap"],
+    "viewport": "Dark 3D city with neon traffic, KPI tiles on both sides.",
+    "risk": "Indistinguishable from every other smart-city demo by design.",
+    "comp": ".impeccable/mocks/decision/canon.webp"
+  },
+  "steer": true
+}

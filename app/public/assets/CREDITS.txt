@@ -1,0 +1,5 @@
+HDRIs and textures: Poly Haven (polyhaven.com), CC0.
+  kloofendal_43d_clear_puresky, rogland_clear_night, asphalt_02, patterned_concrete_pavers, concrete_pavement, metal_plate
+Walking figure: CesiumMan, Cesium, CC-BY 4.0, via KhronosGroup/glTF-Sample-Assets.
+Satellite imagery (runtime): Esri World Imagery, Esri and its data providers.
+Photoreal 3D (runtime, optional): Google Photorealistic 3D Tiles, Map data Google.

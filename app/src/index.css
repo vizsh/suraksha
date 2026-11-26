@@ -1,0 +1,142 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+@import "shadcn/tailwind.css";
+@import "@fontsource-variable/mona-sans/wdth.css";
+@import "@fontsource/martian-mono/400.css";
+@import "@fontsource/martian-mono/500.css";
+
+@custom-variant dark (&:is(.dark *));
+
+/* Live Survey Sheet: clay ground, graphite ink, survey state inks. */
+@theme inline {
+  --font-sans: 'Mona Sans Variable', ui-sans-serif, system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --font-mono: 'Martian Mono', ui-monospace, monospace;
+
+  --color-clay: #e7e3d9;
+  --color-clay-deep: #d9d4c8;
+  --color-clay-shade: #c9c3b5;
+  --color-ink: #1c2226;
+  --color-ink-2: #3d454a;
+  --color-ink-3: #565e63;
+  --color-rule: #b9b3a5;
+  --color-confirmed: #e0401f;
+  --color-confirmed-text: #b3301a;
+  --color-potential: #d19a1c;
+  --color-potential-text: #8a6208;
+  --color-live: #1f6fb2;
+  --color-predicted: #6b4fa0;
+  --color-terrain: #b4562b;
+  --color-night: #13181b;
+  --color-night-2: #1d2428;
+  --color-night-rule: #34403f;
+
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+
+  --radius-sm: 2px;
+  --radius-md: 2px;
+  --radius-lg: 2px;
+  --radius-xl: 2px;
+
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+:root {
+  --background: #e7e3d9;
+  --foreground: #1c2226;
+  --card: #e7e3d9;
+  --card-foreground: #1c2226;
+  --popover: #efece4;
+  --popover-foreground: #1c2226;
+  --primary: #1c2226;
+  --primary-foreground: #efece4;
+  --secondary: #d9d4c8;
+  --secondary-foreground: #1c2226;
+  --muted: #d9d4c8;
+  --muted-foreground: #565e63;
+  --accent: #d9d4c8;
+  --accent-foreground: #1c2226;
+  --destructive: #b3301a;
+  --border: #b9b3a5;
+  --input: #b9b3a5;
+  --ring: #1f6fb2;
+  --radius: 2px;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+  html {
+    font-family: var(--font-sans);
+    font-variation-settings: 'wdth' 100;
+    background: var(--color-clay);
+    color: var(--color-ink);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    scrollbar-color: var(--color-ink-3) var(--color-clay-deep);
+    scrollbar-width: thin;
+  }
+  body {
+    min-height: 100dvh;
+  }
+  ::selection {
+    background: var(--color-live);
+    color: #f2f0ea;
+  }
+  :focus-visible {
+    outline: 2px solid var(--color-live);
+    outline-offset: 3px;
+  }
+  a {
+    text-underline-offset: 0.22em;
+    text-decoration-thickness: 1px;
+  }
+  input,
+  textarea {
+    caret-color: var(--color-confirmed);
+  }
+}
+
+@layer utilities {
+  .wdth-wide {
+    font-variation-settings: 'wdth' 125;
+  }
+  .wdth-narrow {
+    font-variation-settings: 'wdth' 80;
+  }
+  .figures {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+  }
+  .hairline {
+    border-width: 0.5px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

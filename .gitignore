@@ -1,0 +1,8 @@
+node_modules/
+.env
+.env*.local
+.vercel/
+.impeccable/review/
+.impeccable/questions/
+.DS_Store
+Thumbs.db
