@@ -70,6 +70,15 @@ One shared world, seven live surfaces. Every device follows the same scenario se
 </tr>
 </table>
 
+<table>
+<tr>
+<td width="50%"><img src="docs/images/twin-night-rain.jpg" alt="City twin at night in monsoon rain with lit windows and street lamps" /><br/><b>Night and monsoon</b> · time of day, rain and wet roads, or "Live Powai" from real weather</td>
+<td width="50%"><img src="docs/images/twin-heat.jpg" alt="Near-miss heat columns rising along JVLR" /><br/><b>Near-miss heat</b> · 30 days of harsh braking as hexagon columns</td>
+</tr>
+</table>
+
+<p align="center"><img src="docs/images/palette.jpg" alt="Command palette searching for the barricade" width="70%" /><br/><b>Command palette</b> · Ctrl/Cmd + K: surfaces, threats, story moments, layers</p>
+
 <p align="center"><img src="docs/images/phone.jpg" alt="Phone app: Road Ahead list and the phone as a road sensor" width="300" /><br/><b>Phone app</b> <code>/app</code> · Road Ahead, camera reports, the phone's accelerometer as a road sensor</p>
 
 ### What is real and what is simulated
@@ -247,6 +256,7 @@ docs/                      architecture, engine, design, data, demo, roadmap, pl
 | [ROADMAP](docs/ROADMAP.md) | Next features: real functionality and visual upgrades |
 | [PLAN](docs/PLAN.md) | The original ideation and build plan |
 | [AGENTS](AGENTS.md) | Context for AI coding agents working in this repo |
+| [CHANGELOG](CHANGELOG.md) | What each build phase added |
 
 ---
 

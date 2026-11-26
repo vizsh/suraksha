@@ -28,19 +28,19 @@ function useSurface(name: 'asphalt' | 'pavers' | 'concrete' | 'metal', repeat = 
   }, [t, repeat])
 }
 
-export function useSurfaceMaterials(night: boolean) {
+export function useSurfaceMaterials(night: boolean, wet = false) {
   const asphalt = useSurface('asphalt')
   const pavers = useSurface('pavers', 1)
   const concrete = useSurface('concrete')
   return useMemo(
     () => ({
       // wet at night: lower roughness so lamps and headlights glint off the road
-      road: new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, ...asphalt, roughness: night ? 0.42 : 0.92, color: night ? '#6f7478' : '#a6a39e', normalScale: new THREE.Vector2(0.6, 0.6) }),
-      minor: new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, ...asphalt, roughness: night ? 0.5 : 0.95, color: night ? '#5f6366' : '#b4b0a8' }),
+      road: new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, ...asphalt, roughness: wet ? 0.22 : night ? 0.42 : 0.92, metalness: wet ? 0.15 : 0, color: night ? '#6f7478' : wet ? '#7d7b77' : '#a6a39e', normalScale: new THREE.Vector2(0.6, 0.6) }),
+      minor: new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, ...asphalt, roughness: wet ? 0.3 : night ? 0.5 : 0.95, color: night ? '#5f6366' : wet ? '#8c8983' : '#b4b0a8' }),
       foot: new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, ...pavers, roughness: 0.85, color: night ? '#7c7a76' : '#d8d2c8' }),
       kerb: new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, ...concrete, roughness: 0.8, color: night ? '#9a9a94' : '#e9e6df' }),
     }),
-    [asphalt, pavers, concrete, night],
+    [asphalt, pavers, concrete, night, wet],
   )
 }
 

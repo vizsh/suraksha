@@ -110,14 +110,14 @@ export function useSatellite(data: CorridorData) {
 }
 
 /** Satellite imagery as the ground plane. Uses the given material so the X-ray patch still applies. */
-export function SatelliteGround({ data, material, night }: { data: CorridorData; material: THREE.MeshStandardMaterial; night: boolean }) {
+export function SatelliteGround({ data, material, night, tone }: { data: CorridorData; material: THREE.MeshStandardMaterial; night: boolean; tone?: string }) {
   const img = useSatellite(data)
   useEffect(() => {
     if (!img) return
     material.map = img.texture
-    material.color.set(night ? '#3a4144' : '#e8e6e0')
+    material.color.set(tone ?? (night ? '#3a4144' : '#e8e6e0'))
     material.needsUpdate = true
-  }, [img, material, night])
+  }, [img, material, night, tone])
   if (!img) return null
   return (
     <mesh material={material} position={[img.center[0], 0.01, img.center[1]]} rotation-x={-Math.PI / 2} receiveShadow>

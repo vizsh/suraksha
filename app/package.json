@@ -29,6 +29,7 @@
     "@types/d3-contour": "^3.0.6",
     "3d-tiles-renderer": "^0.5.4",
     "class-variance-authority": "^0.7.1",
+    "cmdk": "^1.1.1",
     "cn": "^0.5.2",
     "d3-contour": "^4.0.3",
     "d3-geo": "^3.1.2",

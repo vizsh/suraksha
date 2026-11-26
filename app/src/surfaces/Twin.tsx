@@ -5,6 +5,7 @@ import { useWeather, weatherWords } from '../sense/weather'
 import { useEvents } from '../sync/events'
 import { SurfaceNav } from '../app/SurfaceNav'
 import { STATE, StateGlyph } from '../product/bits'
+import { useAtmos, type TimeOfDay } from '../world/atmos'
 
 const VIEWS: [TwinView, string][] = [
   ['city', 'City'],
@@ -26,6 +27,7 @@ export default function Twin() {
   const { view, setView, flyTo } = useTwinCam()
   const [isolines, setIsolines] = useState(true)
   const [labels, setLabels] = useState(true)
+  const atmos = useAtmos()
   const list = [...threats].sort((a, b) => RANK[a.state] - RANK[b.state] || b.confidence - a.confidence)
 
   return (
@@ -48,6 +50,33 @@ export default function Twin() {
         <Toggle on={xray} onClick={() => setXray(!xray)} label="X-ray wave" />
         <Toggle on={isolines} onClick={() => setIsolines(!isolines)} label="Risk terrain" />
         <Toggle on={labels} onClick={() => setLabels(!labels)} label="Labels" />
+      </div>
+
+      <div className="absolute bottom-8 left-1/2 z-30 flex -translate-x-1/2 flex-wrap items-center justify-center gap-2 md:left-[calc(50%-170px)]">
+        <div className="flex bg-clay" style={{ boxShadow: 'inset 0 0 0 1px rgba(28,34,38,0.3)' }}>
+          {(['day', 'dusk', 'night'] as TimeOfDay[]).map((t) => (
+            <button
+              key={t}
+              onClick={() => atmos.setTime(t)}
+              className={'px-3 py-1.5 text-[13px] capitalize transition-colors ' + (!atmos.live && atmos.time === t ? 'bg-ink text-clay' : 'hover:bg-clay-deep')}
+            >
+              {t}
+            </button>
+          ))}
+          <button
+            onClick={() => atmos.goLive(weather)}
+            className={'flex items-center gap-1.5 px-3 py-1.5 text-[13px] transition-colors ' + (atmos.live ? 'bg-ink text-clay' : 'hover:bg-clay-deep')}
+            title="Use the real time and weather in Powai"
+          >
+            <span className="relative flex h-1.5 w-1.5">
+              <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-[#7fb6e6] opacity-75" />
+              <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-[#7fb6e6]" />
+            </span>
+            Live Powai
+          </button>
+        </div>
+        <Toggle on={atmos.rain} onClick={() => atmos.setRain(!atmos.rain)} label="Monsoon rain" />
+        <Toggle on={atmos.heat} onClick={() => atmos.setHeat(!atmos.heat)} label="Near-miss heat" />
       </div>
 
       <aside

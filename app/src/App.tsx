@@ -2,6 +2,7 @@ import { lazy, Suspense } from 'react'
 import { Route, Switch } from 'wouter'
 import { Loading, WorldRoot } from './app/WorldRoot'
 import { useSim } from './world/store'
+import { CommandPalette } from './app/CommandPalette'
 
 const Landing = lazy(() => import('./pages/Landing'))
 const Twin = lazy(() => import('./surfaces/Twin'))
@@ -33,6 +34,7 @@ export default function App() {
               <Loading label="No surface at this address. Press 0 for the showcase." />
             </Route>
           </Switch>
+          <CommandPalette />
         </Ready>
       </Suspense>
     </WorldRoot>

@@ -47,6 +47,9 @@ export function SurfaceNav({ tone = 'day', className = '', inline = false }: { t
           SuRaksha Mesh
         </span>
         <span className={night ? 'text-clay/60' : 'text-ink-3'}>{current?.label}</span>
+        <kbd className={'figures ml-1 hidden px-1 text-[10px] md:inline ' + (night ? 'text-clay/45' : 'text-ink-3')} style={{ boxShadow: 'inset 0 0 0 1px currentColor' }}>
+          Ctrl K
+        </kbd>
       </button>
       <AnimatePresence>
         {open && (

@@ -11,6 +11,8 @@ import { Fleet } from './realism/Fleet'
 import { Walkers } from './realism/Walkers'
 import { BarricadeSet, Lamps, Pothole, Trees, useSurfaceMaterials } from './realism/Street'
 import { GOOGLE_KEY, GoogleTiles, SatelliteGround } from './realism/Ground'
+import { Rain } from './realism/Rain'
+import { NearMissHeat } from './realism/Heat'
 
 export type SheetMode = 'day' | 'night'
 
@@ -33,6 +35,10 @@ export function CityScene({
   fans = true,
   driver = false,
   photoreal = true,
+  wet = false,
+  dusk = false,
+  rain = false,
+  heat = false,
 }: {
   world: World
   mode?: SheetMode
@@ -44,6 +50,10 @@ export function CityScene({
   driver?: boolean
   /** use Google photoreal tiles when a key is configured */
   photoreal?: boolean
+  wet?: boolean
+  dusk?: boolean
+  rain?: boolean
+  heat?: boolean
 }) {
   const night = mode === 'night'
   const google = photoreal && !night && !!GOOGLE_KEY
@@ -87,11 +97,11 @@ export function CityScene({
         <GoogleTiles data={world.data} calibrateAt={[world.path.at(world.sStart + BUS_S, 0).x, world.path.at(world.sStart + BUS_S, 0).z]} />
       ) : (
         <>
-          <SatelliteGround data={world.data} material={mats.ground} night={night} />
+          <SatelliteGround data={world.data} material={mats.ground} night={night} tone={dusk ? '#9a918a' : wet && !night ? '#b9b8b2' : undefined} />
           <mesh geometry={geo.merged} material={mats.building} castShadow receiveShadow />
           <lineSegments geometry={geo.edges} material={mats.edge} />
           <Suspense fallback={null}>
-            <Roads geo={geo} night={night} />
+            <Roads geo={geo} night={night} wet={wet || rain} />
             <Trees world={world} night={night} />
           </Suspense>
           <Lamps world={world} night={night} />
@@ -113,6 +123,8 @@ export function CityScene({
         <BarricadeSet world={world} night={night} />
       </Suspense>
       <Pothole world={world} />
+      {rain && <Rain night={night} />}
+      {heat && <NearMissHeat world={world} />}
       {fans && <SensorFans world={world} />}
       {!driver && <Arcs world={world} />}
       <Markers labels={labels} mode={mode} driver={driver} />
@@ -120,8 +132,8 @@ export function CityScene({
   )
 }
 
-function Roads({ geo, night }: { geo: ReturnType<typeof buildRoads>; night: boolean }) {
-  const m = useSurfaceMaterials(night)
+function Roads({ geo, night, wet }: { geo: ReturnType<typeof buildRoads>; night: boolean; wet: boolean }) {
+  const m = useSurfaceMaterials(night, wet)
   return (
     <group>
       <mesh geometry={geo.minor} material={m.minor} receiveShadow />

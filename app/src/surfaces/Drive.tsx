@@ -8,7 +8,7 @@ import { SurfaceNav } from '../app/SurfaceNav'
 import { chime, speak, startMonitor, stopMonitor, useFatigue } from '../sense/fatigue'
 import { useEvents } from '../sync/events'
 import { engineNow, simTime } from '../world/clock'
-import { sampleAgents, EGO_PLATE } from '../world/scenario'
+import { sampleAgents, EGO_PLATE, egoOffset } from '../world/scenario'
 
 /** The cockpit: windshield HUD over the night road, voice alerts, and on-device driver monitoring. */
 export default function Drive() {
@@ -26,7 +26,9 @@ export default function Drive() {
     if (spoken.current.has(key)) return
     spoken.current.add(key)
     const c = alertCopy(top)
-    if (top.tier === 'critical') chime(true)
+    // place the chime on the threat's side of the road, relative to our lane
+    const pan = (top.threat.offset - egoOffset(useSim.getState().t)) / 6
+    chime(top.tier === 'critical', top.threat.kind === 'pedestrian' ? -0.8 : pan)
     speak(`${c.title}. ${c.detail.replace(' m', ' metres')}.`)
   }, [feed, voice])
 

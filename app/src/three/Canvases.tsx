@@ -8,6 +8,7 @@ import { create } from 'zustand'
 import { CityScene } from './CityScene'
 import { BUS_S, sampleAgents, type World } from '../world/scenario'
 import { simTime } from '../world/clock'
+import { SUN, useAtmos, type TimeOfDay } from '../world/atmos'
 
 /** Only render while on screen, so several live views can share a page. */
 function useOnScreen<T extends HTMLElement>() {
@@ -44,7 +45,7 @@ function Frame({ children, className, dpr = [1, 1.75] }: { children: ReactNode; 
 }
 
 /** Low raking sun: long shadows carry the relief, the clay stays light. */
-function DayLight({ target }: { target: [number, number] }) {
+function DayLight({ target, time = 'day' }: { target: [number, number]; time?: TimeOfDay }) {
   const light = useRef<THREE.DirectionalLight>(null)
   useEffect(() => {
     if (!light.current) return
@@ -53,12 +54,12 @@ function DayLight({ target }: { target: [number, number] }) {
   }, [target])
   return (
     <>
-      <hemisphereLight args={['#eef3f6', '#a49f8f', 0.55]} />
+      <hemisphereLight args={time === 'night' ? ['#3d5068', '#0c0d0e', 0.35] : time === 'dusk' ? ['#c9b6c4', '#6d5f55', 0.45] : ['#eef3f6', '#a49f8f', 0.55]} />
       <directionalLight
         ref={light}
-        position={[target[0] - 760, 240, target[1] + 340]}
-        intensity={3.1}
-        color="#fff1dc"
+        position={sunPosition(target, time)}
+        intensity={SUN[time].intensity}
+        color={SUN[time].color}
         castShadow
         shadow-mapSize={[4096, 4096]}
         shadow-bias={-0.0004}
@@ -72,6 +73,14 @@ function DayLight({ target }: { target: [number, number] }) {
       />
     </>
   )
+}
+
+function sunPosition(target: [number, number], time: TimeOfDay): [number, number, number] {
+  const { elev, az } = SUN[time]
+  const e = THREE.MathUtils.degToRad(elev)
+  const a = THREE.MathUtils.degToRad(az)
+  const d = 900
+  return [target[0] + Math.sin(a) * Math.cos(e) * d, Math.sin(e) * d, target[1] + Math.cos(a) * Math.cos(e) * d]
 }
 
 /** Shift the projection centre so the action sits right of the title block. */
@@ -118,10 +127,15 @@ function Post() {
 }
 
 /** Real sky: Poly Haven HDRI for image-based lighting and the visible horizon. */
-function DaySky({ background = true }: { background?: boolean }) {
+function DaySky({ background = true, time = 'day' }: { background?: boolean; time?: TimeOfDay }) {
   return (
     <Suspense fallback={null}>
-      <Environment files="/assets/hdri/day.hdr" background={background} environmentIntensity={0.85} backgroundIntensity={0.9} />
+      <Environment
+        files={time === 'night' ? '/assets/hdri/night.hdr' : '/assets/hdri/day.hdr'}
+        background={background}
+        environmentIntensity={SUN[time].env}
+        backgroundIntensity={SUN[time].sky}
+      />
     </Suspense>
   )
 }
@@ -195,14 +209,15 @@ function TwinCamera({ world }: { world: World }) {
 
 export function TwinCanvas({ world, xray, isolines, labels, className }: { world: World; xray: boolean; isolines: boolean; labels: boolean; className?: string }) {
   const focus = useMemo(() => busFocus(world), [world])
+  const { time, rain, heat } = useAtmos()
   return (
     <Frame className={className}>
-      <fog attach="fog" args={['#d6dde0', 1300, 3600]} />
-      <DaySky />
+      <fog attach="fog" args={[SUN[time].fog, time === 'day' ? 1300 : 900, time === 'day' ? 3600 : 2600]} />
+      <DaySky time={time} />
       <PerspectiveCamera makeDefault fov={32} near={6} far={8000} position={[focus[0] - 560, 430, focus[1] + 620]} />
       <TwinCamera world={world} />
-      <DayLight target={focus} />
-      <CityScene world={world} xray={xray} isolines={isolines} labels={labels} />
+      <DayLight target={focus} time={time} />
+      <CityScene world={world} xray={xray} isolines={isolines} labels={labels} mode={time === 'day' ? 'day' : 'night'} dusk={time === 'dusk'} rain={rain} wet={rain} heat={heat} photoreal={time === 'day'} />
       <Post />
     </Frame>
   )

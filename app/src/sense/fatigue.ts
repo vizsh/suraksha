@@ -135,11 +135,15 @@ function loop(video: HTMLVideoElement) {
 // ---------- alerting: a chime and a voice, never a modal ----------
 
 let audio: AudioContext | null = null
-export function chime(urgent: boolean) {
+/** Two-tone chime; `pan` in -1 (left) .. 1 (right) places it on the side of the threat. */
+export function chime(urgent: boolean, pan = 0) {
   try {
     audio ??= new AudioContext()
     const t0 = audio.currentTime
     const notes = urgent ? [880, 660, 880] : [660, 880]
+    const panner = audio.createStereoPanner()
+    panner.pan.value = Math.max(-1, Math.min(1, pan))
+    panner.connect(audio.destination)
     notes.forEach((f, i) => {
       const o = audio!.createOscillator()
       const g = audio!.createGain()
@@ -148,7 +152,7 @@ export function chime(urgent: boolean) {
       g.gain.setValueAtTime(0.0001, t0 + i * 0.18)
       g.gain.exponentialRampToValueAtTime(0.25, t0 + i * 0.18 + 0.02)
       g.gain.exponentialRampToValueAtTime(0.0001, t0 + i * 0.18 + 0.16)
-      o.connect(g).connect(audio!.destination)
+      o.connect(g).connect(panner)
       o.start(t0 + i * 0.18)
       o.stop(t0 + i * 0.18 + 0.18)
     })
