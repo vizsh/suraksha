@@ -5,6 +5,7 @@ import { useSim } from '../world/store'
 import { onClockChange } from '../world/clock'
 import { useWeather } from '../sense/weather'
 import { startRemoteSync, useEvents } from '../sync/events'
+import { useMonsoon } from '../sense/monsoon'
 
 /** Loads the corridor once, runs the shared ticker, live weather and cross-device sync. */
 export function WorldRoot({ children }: { children: ReactNode }) {
@@ -33,6 +34,10 @@ export function WorldRoot({ children }: { children: ReactNode }) {
     void loadWeather()
     startRemoteSync()
   }, [loadWeather])
+
+  useEffect(() => {
+    if (world) void useMonsoon.getState().load(world)
+  }, [world])
 
   return <>{children}</>
 }

@@ -10,6 +10,8 @@ import { onBump, simulateBump, startMotion, useMotion } from '../sense/motion'
 import { placeReport, watchLocation, type Placed } from '../sense/location'
 import type { HazardKind, V2 } from '../engine/types'
 import { hazardLabel } from '../world/store'
+import { snapToRoad } from '../world/corridor'
+import { RouteCheck } from '../product/RouteCheck'
 
 /** The phone app: drive mode with the phone as a road sensor, and citizen reporting. */
 export default function PhoneApp() {
@@ -45,16 +47,17 @@ function useBumpReporter() {
     () =>
       onBump((b) => {
         const place = placeReport(world)
+        const snap = snapToRoad(world.data, world.path, place.pos)
         add({
           id: `imu-${deviceId}-${b.at}`,
           t: engineNow(),
           kind: 'pothole',
           source: 'imu',
           sourceId: deviceId,
-          pos: place.pos,
+          pos: snap.pos,
           conf: Math.max(0.5, Math.min(0.92, (b.peak - 4) / 7)),
           who: `Phone ${deviceId.slice(-4).toUpperCase()}`,
-          how: `Accelerometer spike ${b.peak.toFixed(1)} m/s²${place.virtual ? ', placed on JVLR' : ''}`,
+          how: `Accelerometer spike ${b.peak.toFixed(1)} m/s², matched to ${snap.road ?? 'the road'}${snap.lane ? ` lane ${snap.lane}` : ''}`,
         })
       }),
     [add, deviceId, world],
@@ -197,6 +200,7 @@ function MapTab() {
             </li>
           ))}
         </ul>
+        <RouteCheck world={world} />
       </div>
     </div>
   )
@@ -261,6 +265,7 @@ function ReportTab() {
     setPlace({ pos: p, virtual: place.virtual })
   }
 
+  const snap = place ? snapToRoad(world.data, world.path, place.pos) : null
   const send = () => {
     if (!kind || !place) return
     const id = `cit-${deviceId}-${Date.now()}`
@@ -272,7 +277,7 @@ function ReportTab() {
         source: 'citizen',
         sourceId: deviceId,
         reputation,
-        pos: place.pos,
+        pos: kind === 'footpath' ? place.pos : (snap?.pos ?? place.pos),
         conf: thumb ? 0.9 : 0.7,
         who: `Resident ${deviceId.slice(-4).toUpperCase()}`,
         how: thumb ? 'Photo and location' : 'Location only, no photo',
@@ -336,6 +341,13 @@ function ReportTab() {
           </div>
           <p className="mt-1.5 text-[12px] text-ink-3">
             {place.virtual ? 'You are outside the demo corridor, so the pin starts on JVLR ahead of the demo car. Tap the map to move it.' : 'Your location. Tap the map to adjust.'}
+            {snap?.road && kind !== 'footpath' && (
+              <span className="mt-0.5 block text-live">
+                Matched to {snap.road}
+                {snap.lane ? `, lane ${snap.lane}` : ''}
+                {snap.moved > 1 ? ` (moved ${snap.moved.toFixed(0)} m)` : ''}
+              </span>
+            )}
           </p>
         </>
       )}

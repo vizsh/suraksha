@@ -77,6 +77,13 @@ One shared world, seven live surfaces. Every device follows the same scenario se
 </tr>
 </table>
 
+<table>
+<tr>
+<td width="70%"><img src="docs/images/ops-monsoon.jpg" alt="Ops console Monsoon tab with a 6-hour rain forecast and the corridor's lowest road points" /><br/><b>Monsoon early warning</b> · rain forecast over the lowest road points raises waterlogging warnings before the water arrives</td>
+<td width="30%"><img src="docs/images/phone-route.jpg" alt="Phone app comparing two real routes by risk" /><br/><b>Safer route</b> · real OSRM routes scored by risk</td>
+</tr>
+</table>
+
 <p align="center"><img src="docs/images/palette.jpg" alt="Command palette searching for the barricade" width="70%" /><br/><b>Command palette</b> · Ctrl/Cmd + K: surfaces, threats, story moments, layers</p>
 
 <p align="center"><img src="docs/images/phone.jpg" alt="Phone app: Road Ahead list and the phone as a road sensor" width="300" /><br/><b>Phone app</b> <code>/app</code> · Road Ahead, camera reports, the phone's accelerometer as a road sensor</p>

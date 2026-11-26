@@ -10,6 +10,7 @@ import { engineNow, loopStart, simTime } from './clock'
 import { egoAbsS, egoOffset, egoSpeed, type World } from './scenario'
 import { useEvents } from '../sync/events'
 import { conditionsFrom, useWeather } from '../sense/weather'
+import { activeForecast, totalMm, useMonsoon, WARN_MM } from '../sense/monsoon'
 
 export interface SourceView {
   id: string
@@ -190,6 +191,39 @@ export const useSim = create<SimState>((set, get) => ({
         ownOnly: false,
         why: z.why,
       })
+    }
+
+    // Monsoon early warning: heavy rain forecast over the corridor's lowest road points
+    const mon = useMonsoon.getState()
+    const fc = activeForecast(mon)
+    const mm = totalMm(fc)
+    if (mm >= WARN_MM) {
+      const peak = fc.reduce((a, h) => (h.mm > a.mm ? h : a), fc[0])
+      for (const lp of mon.lowPoints) {
+        const pr = w.path.project(lp.pos[0], lp.pos[1])
+        views.push({
+          id: `monsoon-${lp.id}`,
+          kind: 'risk-zone',
+          label: `Waterlogging likely, ${lp.road.replace('Jogeshwari-Vikhroli Link Road', 'JVLR')}`,
+          lane: 'All lanes',
+          state: 'predicted',
+          confidence: Math.min(0.95, 0.4 + mm / 60),
+          sources: [{ id: `monsoon-src-${lp.id}`, ageMs: 0, who: 'Monsoon watch', how: `${mm.toFixed(0)} mm forecast in 6 h, peak at ${peak?.time ?? 'soon'}; ground ${lp.elev.toFixed(0)} m, a local low`, source: 'history', clear: false }],
+          sourceCount: 1,
+          ahead: pr.dist < 30 ? pr.s - egoS : Infinity,
+          onRoute: pr.dist < 30,
+          s: pr.s,
+          offset: 0,
+          pos: lp.pos,
+          origin: 'predicted',
+          obsIds: [],
+          firstSeen: 0,
+          lastSeen: 0,
+          synthetic: mon.simulated,
+          ownOnly: false,
+          why: `${mm.toFixed(0)} mm of rain in the next 6 h over a low point`,
+        })
+      }
     }
 
     const route: RouteThreat[] = views.filter((v) => !v.ownOnly).map((v) => ({ id: v.id, kind: v.kind, state: v.state, s: v.s, offset: v.offset, onRoute: v.onRoute }))

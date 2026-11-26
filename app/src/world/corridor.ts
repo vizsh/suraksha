@@ -148,6 +148,8 @@ export interface RiskField {
   isolines: { level: number; rings: V2[][] }[]
   hotspot: V2
   peaks: { p: V2; value: number }[]
+  /** Predicted risk at a point (bilinear on the 8 m grid). */
+  at: (x: number, z: number) => number
 }
 
 /** Predicted-risk surface: geometry features (signals, stops, hospitals) plus a synthetic crash history. */
@@ -206,11 +208,64 @@ export function buildRisk(data: CorridorData, extraHotspots: { p: V2; amp: numbe
     }
   }
   peaks.sort((a, b) => b.value - a.value)
-  return { isolines, hotspot, peaks: peaks.slice(0, 5) }
+  const at = (x: number, z: number) => {
+    const fx = (x - ox) / cell
+    const fz = (z - oz) / cell
+    const i = Math.floor(fx)
+    const j = Math.floor(fz)
+    if (i < 0 || j < 0 || i >= nx - 1 || j >= nz - 1) return 0
+    const tx = fx - i
+    const tz = fz - j
+    const v = (a: number, b: number) => values[b * nx + a]
+    return (v(i, j) * (1 - tx) + v(i + 1, j) * tx) * (1 - tz) + (v(i, j + 1) * (1 - tx) + v(i + 1, j + 1) * tx) * tz
+  }
+  return { isolines, hotspot, peaks: peaks.slice(0, 5), at }
 }
 
 let cache: Promise<CorridorData> | null = null
 export function loadCorridor(): Promise<CorridorData> {
   cache ??= fetch('/data/corridor.json').then((r) => r.json())
   return cache
+}
+
+// ---------- coordinates ----------
+
+const M_PER_LAT = 110574
+function mPerLon(lat0: number) {
+  return 111320 * Math.cos((lat0 * Math.PI) / 180)
+}
+/** Local metres (x east, z south) to latitude and longitude. */
+export function toLatLon(data: CorridorData, x: number, z: number): { lat: number; lon: number } {
+  return { lat: data.origin.lat - z / M_PER_LAT, lon: data.origin.lon + x / mPerLon(data.origin.lat) }
+}
+/** Latitude and longitude to local metres. */
+export function fromLatLon(data: CorridorData, lat: number, lon: number): V2 {
+  return [(lon - data.origin.lon) * mPerLon(data.origin.lat), -(lat - data.origin.lat) * M_PER_LAT]
+}
+
+/** Map matching: move a reported point onto the nearest carriageway, and onto a lane centre on JVLR. */
+export function snapToRoad(data: CorridorData, route: Path, p: V2): { pos: V2; road: string | null; lane: number | null; moved: number } {
+  const pr = route.project(p[0], p[1])
+  if (pr.dist < 12) {
+    const lane = Math.max(-1, Math.min(1, Math.round(pr.offset / 3.5)))
+    const q = route.at(pr.s, lane * 3.5)
+    return { pos: [q.x, q.z], road: 'JVLR', lane: lane + 2, moved: Math.hypot(q.x - p[0], q.z - p[1]) }
+  }
+  let best = { d: Infinity, pos: p as V2, road: null as string | null }
+  for (const r of data.roads) {
+    if (r.kind === 'footway') continue
+    for (let i = 0; i < r.pts.length - 1; i++) {
+      const [ax, az] = r.pts[i]
+      const [bx, bz] = r.pts[i + 1]
+      const vx = bx - ax
+      const vz = bz - az
+      const l2 = vx * vx + vz * vz || 1
+      const k = Math.max(0, Math.min(1, ((p[0] - ax) * vx + (p[1] - az) * vz) / l2))
+      const q: V2 = [ax + vx * k, az + vz * k]
+      const d = Math.hypot(q[0] - p[0], q[1] - p[1])
+      if (d < best.d) best = { d, pos: q, road: r.name }
+    }
+  }
+  if (best.d > 25) return { pos: p, road: null, lane: null, moved: 0 }
+  return { pos: best.pos, road: best.road, lane: null, moved: best.d }
 }

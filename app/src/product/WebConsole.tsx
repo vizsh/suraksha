@@ -1,6 +1,6 @@
 import { useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
-import { BroadcastIcon, CheckCircleIcon, WrenchIcon } from '@phosphor-icons/react'
+import { BroadcastIcon, CheckCircleIcon, DownloadSimpleIcon, WrenchIcon } from '@phosphor-icons/react'
 import { BevCanvas } from '../three/Canvases'
 import type { World } from '../world/scenario'
 import { ago, threatForObservation, useSim, type ThreatView } from '../world/store'
@@ -9,8 +9,10 @@ import { useEvents, type WorkOrder } from '../sync/events'
 import { useWeather, weatherWords } from '../sense/weather'
 import type { HazardKind } from '../engine/types'
 import { STATE, StateGlyph } from './bits'
+import { activeForecast, totalMm, useMonsoon, WARN_MM } from '../sense/monsoon'
+import { toLatLon } from '../world/corridor'
 
-type Tab = 'live' | 'reports' | 'orders' | 'blackspots'
+type Tab = 'live' | 'reports' | 'orders' | 'blackspots' | 'monsoon'
 const RANK: Record<string, number> = { confirmed: 0, potential: 1, noticed: 2, predicted: 3, resolved: 4, faded: 5 }
 const REPAIRABLE = new Set<string>(['pothole', 'barricade', 'speed-breaker', 'debris', 'manhole', 'footpath', 'waterlogging', 'unknown'])
 
@@ -47,13 +49,14 @@ export function WebConsole({ world }: { world: World }) {
       </div>
 
       <aside className="flex min-h-0 flex-col">
-        <nav className="grid grid-cols-4 border-b border-rule text-[12px]">
+        <nav className="grid grid-cols-5 border-b border-rule text-[12px]">
           {(
             [
               ['live', 'Live'],
               ['reports', 'Reports'],
-              ['orders', 'Work orders'],
+              ['orders', 'Orders'],
               ['blackspots', 'Blackspots'],
+              ['monsoon', 'Monsoon'],
             ] as const
           ).map(([k, label]) => (
             <button
@@ -67,8 +70,9 @@ export function WebConsole({ world }: { world: World }) {
         </nav>
         {tab === 'live' && <LiveTab live={live} current={current} onSelect={setSel} />}
         {tab === 'reports' && <ReportsTab threats={threats} onSelect={(id) => (setSel(id), setTab('live'))} />}
-        {tab === 'orders' && <OrdersTab threats={threats} />}
+        {tab === 'orders' && <OrdersTab threats={threats} world={world} />}
         {tab === 'blackspots' && <BlackspotsTab world={world} />}
+        {tab === 'monsoon' && <MonsoonTab />}
       </aside>
     </div>
   )
@@ -263,7 +267,7 @@ function ReportsTab({ threats, onSelect }: { threats: ThreatView[]; onSelect: (i
   )
 }
 
-function OrdersTab({ threats }: { threats: ThreatView[] }) {
+function OrdersTab({ threats, world }: { threats: ThreatView[]; world: World }) {
   const orders = useEvents((s) => s.workOrders)
   const upsert = useEvents((s) => s.upsertWorkOrder)
   const add = useEvents((s) => s.addObservation)
@@ -284,11 +288,31 @@ function OrdersTab({ threats }: { threats: ThreatView[] }) {
     })
     upsert({ ...wo, status: 'repaired', repairedAt: engineNow() })
   }
+  const exportBar = (
+    <div className="flex items-center gap-2 border-b border-rule px-4 py-2.5">
+      <span className="flex-1 text-[11px] text-ink-3">Send to the city systems</span>
+      <button onClick={() => exportThreats(world, threats, orders, 'geojson')} className="flex items-center gap-1 border border-ink/30 px-2 py-1 text-[11px] hover:bg-clay-deep">
+        <DownloadSimpleIcon size={12} />
+        GeoJSON
+      </button>
+      <button onClick={() => exportThreats(world, threats, orders, 'csv')} className="flex items-center gap-1 border border-ink/30 px-2 py-1 text-[11px] hover:bg-clay-deep">
+        <DownloadSimpleIcon size={12} />
+        CSV
+      </button>
+    </div>
+  )
   if (orders.length === 0) {
-    return <div className="px-4 py-6 text-[13px] leading-relaxed text-ink-2">No work orders. Select a road hazard in Live and dispatch a crew.</div>
+    return (
+      <>
+        {exportBar}
+        <div className="px-4 py-6 text-[13px] leading-relaxed text-ink-2">No work orders. Select a road hazard in Live and dispatch a crew.</div>
+      </>
+    )
   }
   return (
-    <ul className="min-h-0 flex-1 divide-y divide-rule/60 overflow-auto px-4">
+    <>
+      {exportBar}
+      <ul className="min-h-0 flex-1 divide-y divide-rule/60 overflow-auto px-4">
       {[...orders].reverse().map((wo) => {
         const th = threats.find((t) => t.id === wo.threatId)
         return (
@@ -313,7 +337,8 @@ function OrdersTab({ threats }: { threats: ThreatView[] }) {
           </li>
         )
       })}
-    </ul>
+      </ul>
+    </>
   )
 }
 
@@ -339,4 +364,107 @@ function BlackspotsTab({ world }: { world: World }) {
       </ol>
     </div>
   )
+}
+
+// ---------- Monsoon watch ----------
+
+export function MonsoonTab() {
+  const mon = useMonsoon()
+  const fc = activeForecast(mon)
+  const mm = totalMm(fc)
+  const max = Math.max(WARN_MM / 6, ...fc.map((h) => h.mm), 1)
+  const warn = mm >= WARN_MM
+  return (
+    <div className="min-h-0 flex-1 overflow-auto px-4 py-3">
+      <div className="flex items-baseline justify-between">
+        <span className="text-[15px] font-semibold" style={{ fontVariationSettings: "'wdth' 108" }}>
+          Next 6 hours
+        </span>
+        <span className="figures text-[13px]">{mm.toFixed(1)} mm</span>
+      </div>
+      <div className="relative mt-3 flex h-[92px] items-end gap-1.5">
+        <div className="absolute inset-x-0 border-t border-dashed border-confirmed/60" style={{ bottom: `${(WARN_MM / 6 / max) * 80 + 16}px` }} />
+        {fc.map((h, i) => (
+          <div key={i} className="flex flex-1 flex-col items-center gap-1">
+            <motion.div
+              className="w-full"
+              style={{ background: h.mm >= WARN_MM / 6 ? '#1f6fb2' : '#8fb6d8' }}
+              initial={{ height: 0 }}
+              animate={{ height: `${Math.max(2, (h.mm / max) * 80)}px` }}
+              transition={{ type: 'spring', stiffness: 120, damping: 18, delay: i * 0.04 }}
+            />
+            <span className="figures text-[9px] text-ink-3">{h.time}</span>
+          </div>
+        ))}
+      </div>
+      <p className={'mt-3 text-[13px] leading-snug ' + (warn ? 'text-confirmed-text' : 'text-ink-2')}>
+        {mon.status === 'error'
+          ? 'Forecast unavailable right now.'
+          : warn
+            ? `Warning: ${mm.toFixed(0)} mm expected. Drivers approaching the low points below get a waterlogging advisory now.`
+            : `No heavy rain forecast for Powai. The warning starts at ${WARN_MM} mm in 6 hours.`}
+      </p>
+      <div className="mt-4 text-[11px] text-ink-3">Lowest road points on the corridor</div>
+      <ul className="mt-1.5 space-y-1.5">
+        {mon.lowPoints.map((l) => (
+          <li key={l.id} className="flex items-center gap-2 text-[13px]">
+            <StateGlyph state="predicted" size={12} />
+            <span className="flex-1 truncate">{l.road}</span>
+            <span className="figures text-[11px] text-ink-3">{l.elev.toFixed(0)} m</span>
+          </li>
+        ))}
+        {mon.lowPoints.length === 0 && <li className="text-[12px] text-ink-3">Reading elevation...</li>}
+      </ul>
+      <label className="mt-5 flex cursor-pointer items-center gap-2 text-[13px]">
+        <input type="checkbox" checked={mon.simulated} onChange={(e) => mon.simulate(e.target.checked)} className="accent-[#1f6fb2]" />
+        Rehearse a cloudburst (simulated forecast)
+      </label>
+      <p className="mt-1 text-[11px] text-ink-3">Forecast: Open-Meteo. Elevation: Copernicus DEM via Open-Meteo.</p>
+    </div>
+  )
+}
+
+// ---------- Export for the city systems ----------
+
+function download(name: string, text: string, type: string) {
+  const url = URL.createObjectURL(new Blob([text], { type }))
+  const a = document.createElement('a')
+  a.href = url
+  a.download = name
+  a.click()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}
+
+export function exportThreats(world: World, threats: ThreatView[], orders: WorkOrder[], format: 'geojson' | 'csv') {
+  const rows = threats
+    .filter((t) => t.state !== 'resolved')
+    .map((t) => {
+      const { lat, lon } = toLatLon(world.data, t.pos[0], t.pos[1])
+      const wo = orders.find((o) => o.threatId === t.id)
+      return {
+        id: t.id,
+        label: t.label,
+        kind: t.kind,
+        state: t.state,
+        confidence: +t.confidence.toFixed(2),
+        sources: t.sourceCount,
+        lane: t.lane,
+        synthetic: t.synthetic,
+        work_order: wo?.status ?? '',
+        lat: +lat.toFixed(6),
+        lon: +lon.toFixed(6),
+      }
+    })
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[:T]/g, '-')
+  if (format === 'geojson') {
+    const fc = {
+      type: 'FeatureCollection',
+      features: rows.map(({ lat, lon, ...p }) => ({ type: 'Feature', geometry: { type: 'Point', coordinates: [lon, lat] }, properties: p })),
+    }
+    download(`suraksha-threats-${stamp}.geojson`, JSON.stringify(fc, null, 2), 'application/geo+json')
+  } else {
+    const head = Object.keys(rows[0] ?? { id: '' })
+    const csv = [head.join(','), ...rows.map((r) => head.map((h) => JSON.stringify((r as Record<string, unknown>)[h] ?? '')).join(','))].join('\n')
+    download(`suraksha-threats-${stamp}.csv`, csv, 'text/csv')
+  }
 }
