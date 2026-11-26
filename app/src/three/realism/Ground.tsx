@@ -37,6 +37,15 @@ const cache = new Map<string, Promise<SatelliteImage>>()
 let pending = 0
 /** Satellite stitches still in flight: views wait for them before compiling shaders once. */
 export const satellitePending = () => pending
+/** Count work that depends on the imagery (the lake mask) as pending too; call the result when done. */
+export function holdSatellite() {
+  pending++
+  let held = true
+  return () => {
+    if (held) pending--
+    held = false
+  }
+}
 
 /** Stitch Esri World Imagery tiles covering the corridor into one texture, positioned in local metres. */
 export function loadSatellite(data: CorridorData): Promise<SatelliteImage> {

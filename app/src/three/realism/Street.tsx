@@ -29,6 +29,32 @@ function useSurface(name: 'asphalt' | 'pavers' | 'concrete' | 'metal', repeat = 
   }, [t, repeat])
 }
 
+// Black-and-yellow kerb paint, as on Mumbai's main roads: 1 m bands, worn at the edges.
+let kerbTex: THREE.CanvasTexture | null = null
+function kerbStripes() {
+  if (kerbTex) return kerbTex
+  const c = document.createElement('canvas')
+  c.width = 16
+  c.height = 128
+  const g = c.getContext('2d')!
+  g.fillStyle = '#d9b21c'
+  g.fillRect(0, 0, 16, 64)
+  g.fillStyle = '#1e1e1d'
+  g.fillRect(0, 64, 16, 64)
+  // wear: flecks of concrete showing through
+  let seed = 9
+  const r = () => ((seed = (seed * 16807) % 2147483647) / 2147483647)
+  for (let k = 0; k < 90; k++) {
+    g.fillStyle = `rgba(150,146,136,${0.25 + r() * 0.4})`
+    g.fillRect(Math.floor(r() * 16), Math.floor(r() * 128), 1 + Math.floor(r() * 2), 1 + Math.floor(r() * 3))
+  }
+  kerbTex = new THREE.CanvasTexture(c)
+  kerbTex.colorSpace = THREE.SRGBColorSpace
+  kerbTex.wrapS = kerbTex.wrapT = THREE.RepeatWrapping
+  kerbTex.magFilter = THREE.NearestFilter
+  return kerbTex
+}
+
 export function useSurfaceMaterials(night: boolean, wet = false) {
   const asphalt = useSurface('asphalt')
   const pavers = useSurface('pavers', 1)
@@ -39,7 +65,7 @@ export function useSurfaceMaterials(night: boolean, wet = false) {
       road: new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2, ...asphalt, roughness: wet ? 0.22 : night ? 0.42 : 0.92, metalness: wet ? 0.15 : 0, color: night ? '#6f7478' : wet ? '#7d7b77' : '#a6a39e', normalScale: new THREE.Vector2(0.6, 0.6) }),
       minor: new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: -1, polygonOffsetUnits: -1, ...asphalt, roughness: wet ? 0.3 : night ? 0.5 : 0.95, color: night ? '#5f6366' : wet ? '#8c8983' : '#b4b0a8' }),
       foot: new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3, ...pavers, roughness: 0.85, color: night ? '#7c7a76' : '#d8d2c8' }),
-      kerb: new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, ...concrete, roughness: 0.8, color: night ? '#9a9a94' : '#e9e6df' }),
+      kerb: new THREE.MeshStandardMaterial({ polygonOffset: true, polygonOffsetFactor: -4, polygonOffsetUnits: -4, ...concrete, map: kerbStripes(), roughness: 0.7, color: night ? '#8a8a86' : '#ffffff' }),
     }),
     [asphalt, pavers, concrete, night, wet],
   )
@@ -127,7 +153,7 @@ export function Lamps({ world, night }: { world: World; night: boolean }) {
 
 // ---------- Trees ----------
 
-function pointInPoly(x: number, z: number, poly: [number, number][]) {
+export function pointInPoly(x: number, z: number, poly: [number, number][]) {
   let inside = false
   for (let i = 0, j = poly.length - 1; i < poly.length; j = i++) {
     const [xi, zi] = poly[i]

@@ -35,6 +35,14 @@ Each item keeps the current budget: the twin holds 55+ fps and under 1.5 s of bl
 - **Bus shelters:** a BEST-style shelter at each of the 30 or so stops, with a red route sign and an advert panel lit at night.
 - **Cost:** the twin still runs at 90+ fps; blocking time on load stays within the run-to-run range of the previous build.
 
+**Status (2026-11-27, second slice):** built: the rest of items 4 and 5, plus items 7 and part of 6. Also all procedural, with no new downloads.
+
+- **Powai lake as water (item 7):** the OSM extract has no water, so the lake is found in the satellite imagery already loaded. Water there is very dark (brightness 13 to 15) and smooth, unlike forest (about 30, textured). The mask is cleaned up and only large connected regions kept: it matches the lake and leaves out the water-hyacinth beds and islands. It takes about 130 ms, during loading. The surface reflects the sky, with moving ripples, and catches the sun at dusk.
+- **Mumbai haze (item 5):** the shared fog code adds a humid haze that builds with distance and thins with height, on the wide city views only. Dusk fog is warmer. Still to do: sun position from `suncalc`, and sodium versus LED street lamps.
+- **Road wear (item 4):** asphalt patches, tar seams, manhole covers and oil stains along JVLR, and black-and-yellow kerb paint on the main roads. Still to do: puddles.
+- **Rooftops (part of item 6):** black water tanks on stands, AC units, and stair rooms on taller blocks. Still to do: balconies, window grilles and monsoon staining.
+- **Cost:** load time and frame rate are unchanged within run-to-run noise.
+
 **Tier 1: biggest difference, lowest risk (about 1 week)**
 
 1. **People that behave like people.**

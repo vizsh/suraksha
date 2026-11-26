@@ -99,7 +99,7 @@ Everything below runs in the prototype today. Routes are in brackets; press `Ctr
 
 | Feature | What it does |
 |---|---|
-| **City twin** (`/twin`) | Real satellite imagery of Powai, 352 OSM buildings, X-ray sensor wave, risk terrain, near-miss heat, day, dusk, night, rain and "Live Powai" weather, working traffic signals with queuing traffic and brake lights, bus shelters, three roadside tree species, a LiDAR point-cloud mode, and film mode for recording the pitch |
+| **City twin** (`/twin`) | Real satellite imagery of Powai, 352 OSM buildings, X-ray sensor wave, risk terrain, near-miss heat, day, dusk, night, rain and "Live Powai" weather, working traffic signals with queuing traffic and brake lights, bus shelters, three roadside tree species, Powai lake as reflective water, humid haze, road wear and rooftop water tanks, a LiDAR point-cloud mode, and film mode for recording the pitch |
 | **Scroll story** (`/`) | One continuous camera move from the city to street level while the scenario plays |
 | **Fusion Lab** | Add evidence and watch the real engine decide, with an autoplay for the pitch |
 | **One car vs the network** | Drag a divider between what your car sees and what the network knows |

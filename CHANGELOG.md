@@ -1,5 +1,12 @@
 # Changelog
 
+## Realism, second slice (2026-11-27)
+
+- **Powai lake is water:** found in the satellite imagery (very dark and smooth, unlike forest), cleaned up to the lake itself, and drawn as a reflective surface with moving ripples that catches the sun at dusk. No extra download.
+- **Mumbai haze:** humid haze over the wide city views that builds with distance and thins with height, so towers stand out above it. Dusk is warmer.
+- **Road wear:** asphalt patches, tar seams, manhole covers and oil stains along JVLR; black-and-yellow kerb paint on the main roads.
+- **Rooftops:** black water tanks on stands, AC units, and stair rooms on taller blocks.
+
 ## Realism, first slice (2026-11-27)
 
 - **People in clothes:** the walking figure's texture carried Cesium's logo and suit; walkers are now drawn in clothes, with skin, shirt, trousers, shoes and hair coloured by body region. The pedestrian behind the bus looks right, then left, at the kerb before crossing. People wait at the bus shelters near the story and glance up the road.

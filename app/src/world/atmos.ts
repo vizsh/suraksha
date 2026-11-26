@@ -38,7 +38,7 @@ export const useAtmos = create<AtmosState>((set) => ({
 
 /** Sun direction and colour for each time of day (elevation in degrees). */
 export const SUN: Record<TimeOfDay, { elev: number; az: number; color: string; intensity: number; env: number; fog: string; sky: number }> = {
-  day: { elev: 18, az: 205, color: '#fff1dc', intensity: 3.1, env: 0.85, fog: '#d6dde0', sky: 0.9 },
-  dusk: { elev: 5, az: 250, color: '#ff9a5c', intensity: 2.2, env: 0.32, fog: '#8d8a95', sky: 0.38 },
+  day: { elev: 18, az: 205, color: '#fff1dc', intensity: 3.1, env: 0.85, fog: '#d4d8d3', sky: 0.9 },
+  dusk: { elev: 5, az: 250, color: '#ff9a5c', intensity: 2.2, env: 0.32, fog: '#a38c88', sky: 0.38 },
   night: { elev: 35, az: 160, color: '#9db4d6', intensity: 0.25, env: 0.3, fog: '#0f151c', sky: 0.6 },
 }

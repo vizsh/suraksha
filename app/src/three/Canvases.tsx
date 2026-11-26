@@ -4,6 +4,7 @@ import { CameraControls, Environment, OrbitControls, OrthographicCamera, Perform
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
+import './haze'
 import { satellitePending } from './realism/Ground'
 import { create } from 'zustand'
 import { CityScene } from './CityScene'

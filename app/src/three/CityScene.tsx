@@ -13,6 +13,9 @@ import { BarricadeSet, Lamps, Pothole, useSurfaceMaterials } from './realism/Str
 import { Trees } from './realism/Trees'
 import { Signals } from './realism/Signals'
 import { Shelters } from './realism/Shelters'
+import { Water } from './realism/Water'
+import { RoadWear } from './realism/Wear'
+import { Rooftops } from './realism/Rooftops'
 import { GOOGLE_KEY, SatelliteGround } from './realism/Ground'
 const GoogleTiles = lazy(() => import('./realism/GoogleTiles'))
 import { Rain } from './realism/Rain'
@@ -127,8 +130,11 @@ export function CityScene({
       ) : (
         <>
           <SatelliteGround data={world.data} material={mats.ground} night={night} tone={dusk ? '#9a918a' : wet && !night ? '#b9b8b2' : undefined} />
+          <Water data={world.data} night={night} />
           <mesh geometry={geo.merged} material={mats.building} castShadow receiveShadow />
           <lineSegments geometry={geo.edges} material={mats.edge} />
+          <Rooftops world={world} night={night} />
+          <RoadWear world={world} night={night} wet={wet || rain} />
           <Suspense fallback={null}>
             <Roads geo={geo} night={night} wet={wet || rain} />
             <Trees world={world} night={night} />
