@@ -151,18 +151,42 @@ function segDist(px: number, pz: number, a: V2, b: V2) {
   return Math.hypot(px - a[0] - vx * k, pz - a[1] - vz * k)
 }
 
-/** True when a point is on any carriageway or within `clear` metres of its edge. */
-export function onAnyRoad(data: CorridorData, x: number, z: number, clear = 1.2) {
+// Spatial index of road segments in 50 m cells, built once per dataset.
+const CELL = 50
+const roadIndex = new WeakMap<CorridorData, Map<string, { a: V2; b: V2; half: number }[]>>()
+function indexRoads(data: CorridorData) {
+  let idx = roadIndex.get(data)
+  if (idx) return idx
+  idx = new Map()
   for (const r of data.roads) {
     if (r.kind === 'footway') continue
-    const half = (ROAD_WIDTH[r.kind] ?? 5) / 2 + clear
+    const half = (ROAD_WIDTH[r.kind] ?? 5) / 2
     for (let i = 0; i < r.pts.length - 1; i++) {
       const a = r.pts[i]
       const b = r.pts[i + 1]
-      if (Math.abs(x - a[0]) > 400 && Math.abs(x - b[0]) > 400) continue
-      if (segDist(x, z, a, b) < half) return true
+      const pad = half + 4
+      const x0 = Math.floor((Math.min(a[0], b[0]) - pad) / CELL)
+      const x1 = Math.floor((Math.max(a[0], b[0]) + pad) / CELL)
+      const z0 = Math.floor((Math.min(a[1], b[1]) - pad) / CELL)
+      const z1 = Math.floor((Math.max(a[1], b[1]) + pad) / CELL)
+      for (let x = x0; x <= x1; x++)
+        for (let z = z0; z <= z1; z++) {
+          const k = `${x},${z}`
+          const list = idx.get(k) ?? []
+          list.push({ a, b, half })
+          idx.set(k, list)
+        }
     }
   }
+  roadIndex.set(data, idx)
+  return idx
+}
+
+/** True when a point is on any carriageway or within `clear` metres of its edge. */
+export function onAnyRoad(data: CorridorData, x: number, z: number, clear = 1.2) {
+  const list = indexRoads(data).get(`${Math.floor(x / CELL)},${Math.floor(z / CELL)}`)
+  if (!list) return false
+  for (const s of list) if (segDist(x, z, s.a, s.b) < s.half + clear) return true
   return false
 }
 

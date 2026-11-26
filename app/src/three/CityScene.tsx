@@ -1,4 +1,4 @@
-import { Suspense, useMemo, useRef } from 'react'
+import { lazy, Suspense, useMemo, useRef } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html, Line } from '@react-three/drei'
 import * as THREE from 'three'
@@ -10,11 +10,30 @@ import { useSim, type ThreatView } from '../world/store'
 import { Fleet } from './realism/Fleet'
 import { Walkers } from './realism/Walkers'
 import { BarricadeSet, Lamps, Pothole, Trees, useSurfaceMaterials } from './realism/Street'
-import { GOOGLE_KEY, GoogleTiles, SatelliteGround } from './realism/Ground'
+import { GOOGLE_KEY, SatelliteGround } from './realism/Ground'
+const GoogleTiles = lazy(() => import('./realism/GoogleTiles'))
 import { Rain } from './realism/Rain'
 import { NearMissHeat } from './realism/Heat'
 
 export type SheetMode = 'day' | 'night'
+
+// Built once per world and shared by every view on the page (geometry can be drawn by any renderer).
+const geoCache = new WeakMap<World, ReturnType<typeof makeCityGeometry>>()
+function makeCityGeometry(world: World) {
+  const b = buildBuildings(world.data)
+  const roads = buildRoads(world.data)
+  const lanes = buildLanePaint(world.path, world.sStart - 160, world.sStart + 760)
+  const gap = buildKerbGap(world.path, world.sStart + BUS_S + 14, world.sStart + BUS_S + 110, -8.4)
+  return { ...b, ...roads, lanes, gap }
+}
+function cityGeometry(world: World) {
+  let g = geoCache.get(world)
+  if (!g) {
+    g = makeCityGeometry(world)
+    geoCache.set(world, g)
+  }
+  return g
+}
 
 const STATE_COLOR = {
   confirmed: '#e0401f',
@@ -60,13 +79,7 @@ export function CityScene({
 }) {
   const night = mode === 'night'
   const google = photoreal && !night && !!GOOGLE_KEY
-  const geo = useMemo(() => {
-    const b = buildBuildings(world.data)
-    const roads = buildRoads(world.data)
-    const lanes = buildLanePaint(world.path, world.sStart - 160, world.sStart + 760)
-    const gap = buildKerbGap(world.path, world.sStart + BUS_S + 14, world.sStart + BUS_S + 110, -8.4)
-    return { ...b, ...roads, lanes, gap }
-  }, [world])
+  const geo = useMemo(() => cityGeometry(world), [world])
 
   const u = useMemo(() => makeWaveUniforms(1), [])
   const uGround = useMemo(() => makeWaveUniforms(0), [])
@@ -97,7 +110,9 @@ export function CityScene({
         <meshStandardMaterial color={night ? '#0e1214' : '#9a9886'} roughness={1} />
       </mesh>
       {google ? (
-        <GoogleTiles data={world.data} calibrateAt={[world.path.at(world.sStart + BUS_S, 0).x, world.path.at(world.sStart + BUS_S, 0).z]} />
+        <Suspense fallback={null}>
+          <GoogleTiles data={world.data} calibrateAt={[world.path.at(world.sStart + BUS_S, 0).x, world.path.at(world.sStart + BUS_S, 0).z]} />
+        </Suspense>
       ) : (
         <>
           <SatelliteGround data={world.data} material={mats.ground} night={night} tone={dusk ? '#9a918a' : wet && !night ? '#b9b8b2' : undefined} />
@@ -296,7 +311,9 @@ function Arcs({ world }: { world: World }) {
 }
 
 function Markers({ labels, mode, driver, own = false }: { labels: boolean; mode: SheetMode; driver: boolean; own?: boolean }) {
-  const threats = useSim((st) => st.threats)
+  // subscribe to a signature, not the array: the store rebuilds threats six times a second
+  const sig = useSim((st) => st.threats.map((t) => `${t.id}:${t.state}:${t.sources.length}`).join('|'))
+  const threats = useMemo(() => useSim.getState().threats, [sig])
   return (
     <group>
       {threats
@@ -325,7 +342,6 @@ function Benchmark({ th, labels, mode, compact = false }: { th: ThreatView; labe
   const tri = useRef<THREE.Mesh>(null)
   const pulse = useRef<THREE.Group>(null)
   const target = useRef(new THREE.Vector3(th.pos[0], 0, th.pos[1]))
-  target.current.set(th.pos[0], 0, th.pos[1])
   const triGeo = useMemo(() => {
     const g = new THREE.ConeGeometry(2.6, 4.2, 3)
     g.rotateX(Math.PI)
@@ -340,6 +356,9 @@ function Benchmark({ th, labels, mode, compact = false }: { th: ThreatView; labe
   const tentative = st === 'potential' || st === 'noticed'
   useFrame(({ clock }) => {
     if (!group.current) return
+    // moving threats (a pedestrian) follow the live store without re-rendering React
+    const live = useSim.getState().threats.find((x) => x.id === th.id)
+    if (live) target.current.set(live.pos[0], 0, live.pos[1])
     group.current.position.lerp(target.current, 0.25)
     if (tri.current) {
       tri.current.position.y = 16 + Math.sin(clock.elapsedTime * 2) * 0.6

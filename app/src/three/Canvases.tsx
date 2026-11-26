@@ -1,9 +1,10 @@
-import { Suspense, useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactElement, type ReactNode } from 'react'
 import { Canvas, useFrame, useThree } from '@react-three/fiber'
-import { CameraControls, Environment, OrbitControls, OrthographicCamera, PerspectiveCamera } from '@react-three/drei'
+import { CameraControls, Environment, OrbitControls, OrthographicCamera, PerformanceMonitor, PerspectiveCamera, useProgress } from '@react-three/drei'
 import { Bloom, EffectComposer, N8AO, SMAA, ToneMapping } from '@react-three/postprocessing'
 import { ToneMappingMode } from 'postprocessing'
 import * as THREE from 'three'
+import { satellitePending } from './realism/Ground'
 import { create } from 'zustand'
 import { CityScene } from './CityScene'
 import { BUS_S, sampleAgents, type World } from '../world/scenario'
@@ -14,33 +15,173 @@ import { SUN, useAtmos, type TimeOfDay } from '../world/atmos'
 function useOnScreen<T extends HTMLElement>() {
   const ref = useRef<T>(null)
   const [on, setOn] = useState(false)
+  const [seen, setSeen] = useState(false)
   useEffect(() => {
     if (!ref.current) return
-    const io = new IntersectionObserver(([e]) => setOn(e.isIntersecting), { rootMargin: '200px' })
+    const io = new IntersectionObserver(
+      ([e]) => {
+        setOn(e.isIntersecting)
+        if (e.isIntersecting) setSeen(true)
+      },
+      { rootMargin: '300px' },
+    )
     io.observe(ref.current)
     return () => io.disconnect()
   }, [])
-  return [ref, on] as const
+  return [ref, on, seen] as const
 }
 
-function Frame({ children, className, dpr = [1, 1.75] }: { children: ReactNode; className?: string; dpr?: [number, number] }) {
-  const [ref, on] = useOnScreen<HTMLDivElement>()
+function Frame({ children, className, dpr = [1, 1.75], post = true }: { children: ReactNode; className?: string; dpr?: [number, number]; post?: boolean }) {
+  const [ref, on, seen] = useOnScreen<HTMLDivElement>()
+  // Start with a modest pixel ratio and let the performance monitor raise or lower it.
+  const [ratio, setRatio] = useState(Math.min(dpr[1], 1.25))
+  // Shaders are compiled in parallel before the first frame, then the view fades in.
+  const [warm, setWarm] = useState(false)
+  const onWarm = useCallback(() => setWarm(true), [])
   return (
     <div ref={ref} className={className}>
-      {/* offsetSize: measure layout size, not the transformed box, so scaled device frames render crisp and full */}
+      {/* a view is only created when it first comes near the screen, then kept */}
+      {seen && (
       <Canvas
-        shadows
-        dpr={dpr}
+        // PCF explicitly: three r187 swaps PCFSoft for PCF on the first frame, which would invalidate every precompiled shader
+        shadows="percentage"
+        dpr={[dpr[0], ratio]}
         resize={{ offsetSize: true }}
-        frameloop={on ? 'always' : 'never'}
+        frameloop={on && warm ? 'always' : 'never'}
+        style={{ opacity: warm ? 1 : 0, transition: 'opacity 420ms ease-out' }}
         gl={{ antialias: false, powerPreference: 'high-performance' }}
         onCreated={(st) => {
+          // Checking shader logs makes the browser wait for every compile; only worth it while developing.
+          st.gl.debug.checkShaderErrors = import.meta.env.DEV
           if (import.meta.env.DEV) ((window as unknown as { __r3f?: unknown[] }).__r3f ??= []).push(st)
         }}
       >
+        <PerformanceMonitor
+          bounds={() => [45, 58]}
+          flipflops={4}
+          onIncline={() => setRatio((r) => Math.min(dpr[1], r + 0.25))}
+          onDecline={() => setRatio((r) => Math.max(0.75, r - 0.25))}
+        />
+        <Warmup onReady={onWarm} post={post} />
         {children}
       </Canvas>
+      )}
     </div>
+  )
+}
+
+/**
+ * Compile every material in the scene with KHR_parallel_shader_compile before the first frame.
+ * Without this, three compiles each program synchronously on first render, which froze the
+ * page for seconds on the cockpit and landing views.
+ */
+function Warmup({ onReady, post }: { onReady: () => void; post: boolean }) {
+  const done = useRef(false)
+  const get = useThree((st) => st.get)
+  useEffect(() => {
+    let live = true
+    const finish = () => {
+      if (!live || done.current) return
+      done.current = true
+      performance.mark('view:ready')
+      onReady()
+    }
+    // Wait for the sky, textures, models and satellite to land: each one changes shader defines,
+    // so compiling before they arrive would only compile everything twice.
+    let raf = 0
+    const t0 = performance.now()
+    let settle = 4
+    const tick = () => {
+      if (!live) return
+      const busy = useProgress.getState().active || satellitePending() > 0
+      if (busy && performance.now() - t0 < 5000) {
+        settle = 4
+        raf = requestAnimationFrame(tick)
+        return
+      }
+      // a few more frames so the state updates and effects that apply the new textures have run
+      if (settle-- > 0) {
+        raf = requestAnimationFrame(tick)
+        return
+      }
+      raf = requestAnimationFrame(() => {
+        const { gl, scene, camera } = get()
+        performance.mark('view:compile')
+        // A view drawn through post-processing renders into a linear buffer, not the screen, and
+        // three keys its programs on that: compile against the same kind of target.
+        const rt = post ? new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType }) : null
+        const prev = gl.getRenderTarget()
+        const passes = passScene(scene.userData.composer, scene)
+        gl.setRenderTarget(rt)
+        const jobs = [gl.compileAsync(scene, camera)]
+        // the post-processing passes draw both into buffers and, for the last one, to the screen
+        if (passes) jobs.push(gl.compileAsync(passes, camera))
+        gl.setRenderTarget(null)
+        if (passes) jobs.push(gl.compileAsync(passes, camera))
+        gl.setRenderTarget(prev)
+        Promise.all(jobs)
+          .then(finish, finish)
+          .finally(() => {
+            rt?.dispose()
+            passes?.userData.geometry.dispose()
+          })
+      })
+    }
+    raf = requestAnimationFrame(() => requestAnimationFrame(tick))
+    const cap = setTimeout(finish, 7000)
+    return () => {
+      live = false
+      cancelAnimationFrame(raf)
+      clearTimeout(cap)
+    }
+  }, [onReady, get, post])
+  return null
+}
+
+/** Every shader material reachable from the composer, each on a full-screen triangle, so they can be compiled ahead. */
+function passScene(composer: unknown, main: THREE.Scene): THREE.Scene | null {
+  if (!composer) return null
+  const found = new Set<THREE.ShaderMaterial>()
+  const seen = new Set<unknown>()
+  const walk = (o: unknown, depth: number) => {
+    if (!o || typeof o !== 'object' || seen.has(o) || depth > 6) return
+    seen.add(o)
+    const x = o as Record<string, unknown> & { isShaderMaterial?: boolean; isWebGLRenderer?: boolean; isTexture?: boolean; isBufferGeometry?: boolean; isWebGLRenderTarget?: boolean }
+    if (o === main || x.isWebGLRenderer || x.isTexture || x.isBufferGeometry || x.isWebGLRenderTarget) return
+    if (x.isShaderMaterial) {
+      found.add(o as THREE.ShaderMaterial)
+      return
+    }
+    for (const v of Array.isArray(o) ? o : o instanceof Map ? [...o.values()] : Object.values(x)) walk(v, depth + 1)
+  }
+  walk(composer, 0)
+  if (found.size === 0) return null
+  const scene = new THREE.Scene()
+  const geometry = new THREE.BufferGeometry()
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute([-1, -1, 0, 3, -1, 0, -1, 3, 0], 3))
+  geometry.setAttribute('uv', new THREE.Float32BufferAttribute([0, 0, 2, 0, 0, 2], 2))
+  for (const m of found) {
+    const mesh = new THREE.Mesh(geometry, m)
+    mesh.frustumCulled = false
+    scene.add(mesh)
+  }
+  scene.userData.geometry = geometry
+  return scene
+}
+
+/** An effect composer the warm-up can find, so its pass shaders are compiled with the scene. */
+function Composer({ children }: { children: ReactElement | ReactElement[] }) {
+  const scene = useThree((st) => st.scene)
+  return (
+    <EffectComposer
+      ref={(c) => {
+        scene.userData.composer = c ?? undefined
+      }}
+      multisampling={0}
+      enableNormalPass={false}
+    >
+      {children}
+    </EffectComposer>
   )
 }
 
@@ -117,12 +258,12 @@ export function busFocus(world: World): [number, number] {
 
 function Post() {
   return (
-    <EffectComposer multisampling={0} enableNormalPass={false}>
+    <Composer>
       <N8AO aoRadius={6} distanceFalloff={0.6} intensity={2.4} halfRes color="#1d1a16" />
       <Bloom luminanceThreshold={1.1} intensity={0.35} mipmapBlur />
       <SMAA />
       <ToneMapping mode={ToneMappingMode.AGX} />
-    </EffectComposer>
+    </Composer>
   )
 }
 
@@ -172,13 +313,7 @@ export function HeroCanvas({ world, xray, className }: { world: World; xray: boo
 
 // ---------- Twin: the full city surface with camera presets ----------
 
-export type TwinView = 'city' | 'corridor' | 'chase' | 'top'
-export const useTwinCam = create<{ view: TwinView; focus: [number, number] | null; setView: (v: TwinView) => void; flyTo: (p: [number, number]) => void }>((set) => ({
-  view: 'city',
-  focus: null,
-  setView: (view) => set({ view, focus: null }),
-  flyTo: (focus) => set({ focus }),
-}))
+import { useTwinCam } from '../world/twinCam'
 
 function TwinCamera({ world }: { world: World }) {
   const ref = useRef<CameraControls>(null)
@@ -246,7 +381,7 @@ function FollowTop({ world, height = 260 }: { world: World; height?: number }) {
 export function BevCanvas({ world, className, zoom = 4.2 }: { world: World; className?: string; zoom?: number }) {
   const focus = useMemo(() => busFocus(world), [world])
   return (
-    <Frame className={className} dpr={[1, 2]}>
+    <Frame className={className} dpr={[1, 2]} post={false}>
       <color attach="background" args={['#e7e3d9']} />
       <OrthographicCamera makeDefault zoom={zoom} near={1} far={2000} position={[focus[0], 300, focus[1]]} />
       <FollowTop world={world} />
@@ -294,9 +429,9 @@ export function DriverCanvas({ world, who = 'ego', className, xray = true, own =
       <hemisphereLight args={['#4d5f73', '#120f0c', 0.55]} />
       <directionalLight position={[200, 300, 100]} intensity={0.12} color="#9fb2bb" />
       <CityScene world={world} mode="night" xray={xray && !own} own={own} isolines={false} labels={false} waveFrom={who} fans={false} driver />
-      <EffectComposer multisampling={0} enableNormalPass={false}>
+      <Composer>
         <Bloom luminanceThreshold={0.9} luminanceSmoothing={0.2} intensity={1.15} mipmapBlur />
-      </EffectComposer>
+      </Composer>
     </Frame>
   )
 }

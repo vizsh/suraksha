@@ -364,6 +364,7 @@ docs/                      architecture, engine, design, data, demo, roadmap, pl
 | [DETECTION](docs/DETECTION.md) | On-device hazard detection: models, gate, limits |
 | [DEMO](docs/DEMO.md) | The 7-minute pitch, multi-device setup, deployment |
 | [ROADMAP](docs/ROADMAP.md) | Next features: real functionality and visual upgrades |
+| [LIVE_DRIVE](docs/LIVE_DRIVE.md) | Planned: running it in a real car (phone, OBD-II, head unit) |
 | [PLAN](docs/PLAN.md) | The original ideation and build plan |
 | [AGENTS](AGENTS.md) | Context for AI coding agents working in this repo |
 | [CHANGELOG](CHANGELOG.md) | What each build phase added |

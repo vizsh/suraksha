@@ -109,7 +109,7 @@ function DriverMonitor() {
   const tone = f.level === 'microsleep' ? '#e0401f' : f.level === 'drowsy' ? '#d19a1c' : '#7fb6e6'
 
   return (
-    <div className="absolute right-4 top-16 z-40 w-[280px] bg-night-2/95 text-clay" style={{ boxShadow: 'inset 0 0 0 1px rgba(231,227,217,0.2)' }}>
+    <div className="absolute left-4 top-16 z-40 w-[260px] bg-night-2/95 text-clay" style={{ boxShadow: 'inset 0 0 0 1px rgba(231,227,217,0.2)' }}>
       <div className="flex items-center gap-2 border-b border-night-rule px-3 py-2 text-[13px]">
         <EyeIcon size={15} />
         Driver monitor

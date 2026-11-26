@@ -1,5 +1,16 @@
 # Changelog
 
+## Performance pass (2026-11-26)
+
+Measured on the production build (headless Chrome, 1600x900): total blocking time on the landing page fell from 9.6 s to 2.6 s, the cockpit from 6.4 s to 0.9 s, ops from 4.2 s to 1.2 s.
+
+- **Shaders compile before the first frame, in parallel.** Each 3D view waits for its sky, textures, models and satellite imagery, then compiles every material (and every post-processing pass, for both buffer and screen output) with `KHR_parallel_shader_compile`, and fades in when ready. Before, three.js compiled roughly 40 programs one by one on the first frame, freezing the page for seconds.
+- **Two hidden recompiles removed:** soft shadows are now set to PCF explicitly (three r187 silently swapped the shadow type on the first frame, invalidating every program), and shader-log checks run only in development.
+- **Less to download and build:** the first download fell from 654 KB to 146 KB gzip (3D, Google tiles and the palette's 3D import split out); views are created only when they near the screen; the pixel ratio adapts to the frame rate; city geometry, trees, lamps and a road spatial index are cached; night views use half-resolution satellite imagery; the night sky HDRI is 1K.
+- **Fewer re-renders:** threat markers re-render only when a threat's state changes; the cockpit's see-through inset is kept mounted instead of rebuilt each loop.
+- **Cockpit layout:** the driver monitor moved left so it no longer covers the see-through view.
+- **Plan kept for later:** [docs/LIVE_DRIVE.md](docs/LIVE_DRIVE.md), running the system in a real car.
+
 ## Phase 4: on-device hazard detection (2026-11-26)
 
 - **Dashcam AI** at `/dashcam` (key 7, and from the phone app's Drive tab): the phone camera, or any dashcam video or photo, becomes a connected-car sensor.

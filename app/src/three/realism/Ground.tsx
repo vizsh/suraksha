@@ -3,12 +3,8 @@
 //    and laid under the 3D model in the same local metres as the OSM data. No key needed.
 // 2. Photoreal: Google Photorealistic 3D Tiles when VITE_GOOGLE_MAPS_API_KEY is set, oriented to
 //    the corridor origin and dropped so the road at the bus stop sits at y = 0.
-import { useEffect, useMemo, useRef, useState } from 'react'
-import { useFrame } from '@react-three/fiber'
+import { useEffect, useState } from 'react'
 import * as THREE from 'three'
-import { DRACOLoader } from 'three/examples/jsm/loaders/DRACOLoader.js'
-import { TilesPlugin, TilesRenderer } from '3d-tiles-renderer/r3f'
-import { GLTFExtensionsPlugin, GoogleCloudAuthPlugin, ReorientationPlugin, TilesFadePlugin } from '3d-tiles-renderer/plugins'
 import type { CorridorData } from '../../world/corridor'
 
 export const GOOGLE_KEY: string | undefined = import.meta.env.VITE_GOOGLE_MAPS_API_KEY || undefined
@@ -38,12 +34,16 @@ export interface SatelliteImage {
 }
 
 const cache = new Map<string, Promise<SatelliteImage>>()
+let pending = 0
+/** Satellite stitches still in flight: views wait for them before compiling shaders once. */
+export const satellitePending = () => pending
 
 /** Stitch Esri World Imagery tiles covering the corridor into one texture, positioned in local metres. */
 export function loadSatellite(data: CorridorData): Promise<SatelliteImage> {
   const key = JSON.stringify(data.bbox)
   const hit = cache.get(key)
   if (hit) return hit
+  pending++
   const p = (async (): Promise<SatelliteImage> => {
     const { s, w, n, e } = data.bbox
     const x0 = tileX(w - MARGIN)
@@ -93,25 +93,44 @@ export function loadSatellite(data: CorridorData): Promise<SatelliteImage> {
     const south = -(latOf(y1 + 1) - lat0) * mPerLat
     return { texture, center: [(west + east) / 2, (north + south) / 2], size: [east - west, south - north] }
   })()
+  p.then(() => pending--, () => pending--)
   cache.set(key, p)
   return p
 }
 
-export function useSatellite(data: CorridorData) {
+const halfCache = new WeakMap<SatelliteImage, SatelliteImage>()
+/** The same imagery at half resolution: a quarter of the GPU memory and upload time. */
+function half(img: SatelliteImage): SatelliteImage {
+  let h = halfCache.get(img)
+  if (h) return h
+  const src = img.texture.image as HTMLCanvasElement
+  const c = document.createElement('canvas')
+  c.width = Math.round(src.width / 2)
+  c.height = Math.round(src.height / 2)
+  c.getContext('2d')!.drawImage(src, 0, 0, c.width, c.height)
+  const texture = new THREE.CanvasTexture(c)
+  texture.colorSpace = THREE.SRGBColorSpace
+  texture.anisotropy = 4
+  h = { ...img, texture }
+  halfCache.set(img, h)
+  return h
+}
+
+export function useSatellite(data: CorridorData, lowRes = false) {
   const [img, setImg] = useState<SatelliteImage | null>(null)
   useEffect(() => {
     let live = true
-    loadSatellite(data).then((i) => live && setImg(i))
+    loadSatellite(data).then((i) => live && setImg(lowRes ? half(i) : i))
     return () => {
       live = false
     }
-  }, [data])
+  }, [data, lowRes])
   return img
 }
 
 /** Satellite imagery as the ground plane. Uses the given material so the X-ray patch still applies. */
 export function SatelliteGround({ data, material, night, tone }: { data: CorridorData; material: THREE.MeshStandardMaterial; night: boolean; tone?: string }) {
-  const img = useSatellite(data)
+  const img = useSatellite(data, night)
   useEffect(() => {
     if (!img) return
     material.map = img.texture
@@ -126,38 +145,3 @@ export function SatelliteGround({ data, material, night, tone }: { data: Corrido
   )
 }
 
-// ---------- Google Photorealistic 3D Tiles ----------
-
-const DEG = Math.PI / 180
-
-/** Photoreal Powai. Ground is calibrated by a downward ray at `calibrateAt` so our road layer meets theirs. */
-export function GoogleTiles({ data, calibrateAt }: { data: CorridorData; calibrateAt: [number, number] }) {
-  const group = useRef<THREE.Group>(null)
-  const ray = useMemo(() => new THREE.Raycaster(), [])
-  const done = useRef(false)
-  const frames = useRef(0)
-  const draco = useMemo(() => new DRACOLoader().setDecoderPath('/draco/'), [])
-  const auth = useMemo(() => [{ apiToken: GOOGLE_KEY, autoRefreshToken: true }], [])
-  const ext = useMemo(() => [{ dracoLoader: draco }], [draco])
-  const orient = useMemo(() => [{ lat: data.origin.lat * DEG, lon: data.origin.lon * DEG, height: 0, recenter: true }], [data])
-  useFrame(() => {
-    if (done.current || !group.current || frames.current++ % 20) return
-    ray.set(new THREE.Vector3(calibrateAt[0], 2000, calibrateAt[1]), new THREE.Vector3(0, -1, 0))
-    const hit = ray.intersectObject(group.current, true)[0]
-    if (hit) {
-      group.current.position.y -= hit.point.y
-      done.current = true
-    }
-  })
-  if (!GOOGLE_KEY) return null
-  return (
-    <group ref={group}>
-      <TilesRenderer errorTarget={8}>
-        <TilesPlugin plugin={GoogleCloudAuthPlugin} args={auth} />
-        <TilesPlugin plugin={GLTFExtensionsPlugin} args={ext} />
-        <TilesPlugin plugin={ReorientationPlugin} args={orient} />
-        <TilesPlugin plugin={TilesFadePlugin} />
-      </TilesRenderer>
-    </group>
-  )
-}

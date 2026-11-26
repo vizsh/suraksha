@@ -5,7 +5,8 @@
 import { existsSync, mkdirSync, writeFileSync } from 'node:fs'
 
 const OUT = 'public/assets'
-const HDRIS = { day: 'kloofendal_43d_clear_puresky', night: 'rogland_clear_night' }
+// day sky is visible behind the city, so 2K; the night sky is mostly black, so 1K is enough
+const HDRIS = { day: ['kloofendal_43d_clear_puresky', '2k'], night: ['rogland_clear_night', '1k'] }
 const TEXTURES = {
   asphalt: 'asphalt_02',
   pavers: 'patterned_concrete_pavers',
@@ -31,9 +32,9 @@ mkdirSync(`${OUT}/hdri`, { recursive: true })
 mkdirSync(`${OUT}/tex`, { recursive: true })
 mkdirSync(`${OUT}/models`, { recursive: true })
 
-for (const [name, asset] of Object.entries(HDRIS)) {
+for (const [name, [asset, res]] of Object.entries(HDRIS)) {
   const f = await files(asset)
-  await save(f.hdri['2k'].hdr.url, `${OUT}/hdri/${name}.hdr`)
+  await save(f.hdri[res].hdr.url, `${OUT}/hdri/${name}.hdr`)
 }
 for (const [name, asset] of Object.entries(TEXTURES)) {
   const f = await files(asset)
@@ -47,7 +48,7 @@ writeFileSync(
   `${OUT}/CREDITS.txt`,
   [
     'HDRIs and textures: Poly Haven (polyhaven.com), CC0.',
-    `  ${Object.values(HDRIS).join(', ')}, ${Object.values(TEXTURES).join(', ')}`,
+    `  ${Object.values(HDRIS).map(([a]) => a).join(', ')}, ${Object.values(TEXTURES).join(', ')}`,
     'Walking figure: CesiumMan, Cesium, CC-BY 4.0, via KhronosGroup/glTF-Sample-Assets.',
     'Satellite imagery (runtime): Esri World Imagery, Esri and its data providers.',
     'Photoreal 3D (runtime, optional): Google Photorealistic 3D Tiles, Map data Google.',

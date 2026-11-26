@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { AnimatePresence, motion } from 'motion/react'
 import { DriverCanvas } from '../three/Canvases'
 import { egoOffset, egoSpeed, type World } from '../world/scenario'
@@ -14,6 +14,10 @@ export function Hud({ world }: { world: World }) {
   const t = useSim((s) => s.t)
   const threats = useSim((s) => s.threats)
   const ped = threats.find((th) => th.kind === 'pedestrian' && th.state !== 'resolved')
+  const [insetUsed, setInsetUsed] = useState(false)
+  useEffect(() => {
+    if (ped && !insetUsed) setInsetUsed(true)
+  }, [ped, insetUsed])
   const changing = t > 16.5 && t < 21
   const speed = Math.round(egoSpeed(world, t) * 3.6)
   const lane = laneOf(egoOffset(t))
@@ -52,22 +56,22 @@ export function Hud({ world }: { world: World }) {
           </motion.div>
         )}
       </AnimatePresence>
-      <AnimatePresence>
-        {ped && (
-          <motion.figure
-            initial={{ opacity: 0, scale: 0.96 }}
-            animate={{ opacity: 1, scale: 1 }}
-            exit={{ opacity: 0 }}
-            className="absolute right-[3%] top-[6%] w-[30%] overflow-hidden"
-            style={{ boxShadow: '0 0 0 1px rgba(231,227,217,0.35), 0 12px 30px rgba(0,0,0,0.45)' }}
-          >
-            <div className="relative aspect-video">
-              <DriverCanvas world={world} who="scout" className="absolute inset-0" />
-            </div>
-            <figcaption className="bg-[#0d1113]/90 px-3 py-2 text-[15px] text-clay/85">See-through: view from the car 72 m ahead</figcaption>
-          </motion.figure>
-        )}
-      </AnimatePresence>
+      {/* kept mounted once shown: rebuilding a 3D view every loop caused a stutter */}
+      {insetUsed && (
+        <motion.figure
+          initial={false}
+          animate={{ opacity: ped ? 1 : 0, scale: ped ? 1 : 0.96 }}
+          transition={{ duration: 0.35 }}
+          className="pointer-events-none absolute right-[3%] top-[6%] w-[30%] overflow-hidden"
+          style={{ boxShadow: '0 0 0 1px rgba(231,227,217,0.35), 0 12px 30px rgba(0,0,0,0.45)' }}
+          aria-hidden={!ped}
+        >
+          <div className="relative aspect-video">
+            <DriverCanvas world={world} who="scout" className="absolute inset-0" />
+          </div>
+          <figcaption className="bg-[#0d1113]/90 px-3 py-2 text-[15px] text-clay/85">See-through: view from the car 72 m ahead</figcaption>
+        </motion.figure>
+      )}
       <div className="absolute bottom-[6%] left-[4%] text-clay">
         <div className="figures text-[56px] leading-none">{Math.max(0, speed)}</div>
         <div className="mt-1 text-[15px] text-clay/60">km/h, lane {lane}</div>

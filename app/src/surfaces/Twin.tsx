@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { TwinCanvas, useTwinCam, type TwinView } from '../three/Canvases'
+import { TwinCanvas } from '../three/Canvases'
+import { useTwinCam, type TwinView } from '../world/twinCam'
 import { useSim } from '../world/store'
 import { useWeather, weatherWords } from '../sense/weather'
 import { useEvents } from '../sync/events'

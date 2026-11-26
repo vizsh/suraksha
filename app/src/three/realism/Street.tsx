@@ -68,8 +68,18 @@ function lightPoolTexture() {
   return poolTex
 }
 
+const lampCache = new WeakMap<World, ReturnType<typeof roadsidePoints>>()
+const treeCache = new WeakMap<World, ReturnType<typeof roadsidePoints>>()
+
 export function Lamps({ world, night }: { world: World; night: boolean }) {
-  const pts = useMemo(() => roadsidePoints(world.data, 34, 0.7, 3).filter((p) => !onAnyRoad(world.data, p.x, p.z, 0.2)), [world])
+  const pts = useMemo(() => {
+    let p = lampCache.get(world)
+    if (!p) {
+      p = roadsidePoints(world.data, 34, 0.7, 3).filter((q) => !onAnyRoad(world.data, q.x, q.z, 0.2))
+      lampCache.set(world, p)
+    }
+    return p
+  }, [world])
   const { poles, heads, pools } = useMemo(() => {
     const m = new THREE.Matrix4()
     const q = new THREE.Quaternion()
@@ -128,8 +138,24 @@ function pointInPoly(x: number, z: number, poly: [number, number][]) {
 
 export function Trees({ world, night }: { world: World; night: boolean }) {
   const pts = useMemo(() => {
+    const hit = treeCache.get(world)
+    if (hit) return hit
+    // bounding boxes first: the polygon test only runs for the few buildings near a point
+    const boxes = world.data.buildings.map((b) => {
+      let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity
+      for (const [x, z] of b.pts) {
+        x0 = Math.min(x0, x); x1 = Math.max(x1, x); z0 = Math.min(z0, z); z1 = Math.max(z1, z)
+      }
+      return { x0, x1, z0, z1, pts: b.pts as [number, number][] }
+    })
     const raw = roadsidePoints(world.data, 13, 4.2, 7)
-    return raw.filter((p) => !onAnyRoad(world.data, p.x, p.z, 2.2) && !world.data.buildings.some((b) => pointInPoly(p.x, p.z, b.pts as [number, number][])))
+    const out = raw.filter(
+      (p) =>
+        !boxes.some((b) => p.x >= b.x0 && p.x <= b.x1 && p.z >= b.z0 && p.z <= b.z1 && pointInPoly(p.x, p.z, b.pts)) &&
+        !onAnyRoad(world.data, p.x, p.z, 2.2),
+    )
+    treeCache.set(world, out)
+    return out
   }, [world])
   const { trunk, crown } = useMemo(() => {
     const trunk = new THREE.CylinderGeometry(0.16, 0.26, 3.4, 7).translate(0, 1.7, 0)
