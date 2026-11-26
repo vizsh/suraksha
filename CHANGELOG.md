@@ -1,5 +1,10 @@
 # Changelog
 
+## Walking fix and next plans (2026-11-26)
+
+- **Pedestrians no longer walk backwards.** The pedestrian crossing behind the bus faced the wrong way (rotated +90° instead of −90° from the road), and every walker's stride ran at the wrong speed, so feet skated. The walk cycle now runs at ground speed ÷ 0.83 m/s, measured from the model's planted foot, and the crossing pedestrian stands still while waiting at the kerb instead of walking in place.
+- **Plan:** [docs/REALISM_AND_FEATURES.md](docs/REALISM_AND_FEATURES.md) lists what makes the 3D look fake today and a tiered plan to fix it, plus twelve features ranked for Mumbai roads.
+
 ## Phase 5: pass-by verification, LiDAR and film mode (2026-11-26)
 
 - **Pass-by verification (A3):** a car or phone that drives past a known hazard and sees an empty lane sends a "saw nothing" observation. Distinct passers are counted since the last sighting; a new sighting resets the count, and a reporter cannot clear their own report. In the scripted night a fallen branch reported this evening starts confirmed and is cleared by three passing cars. The twin shows a blue sweep for each pass and a "cleared by N passing cars" label; the ops console keeps cleared threats listed and marks each passer "saw nothing"; the phone app has a "Not there now" vote; the dashcam votes automatically when it passes a hazard with a real GPS fix and its road check reads clear.

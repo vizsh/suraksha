@@ -369,6 +369,7 @@ docs/                      architecture, engine, design, data, demo, roadmap, pl
 | [DEMO](docs/DEMO.md) | The 7-minute pitch, multi-device setup, deployment |
 | [ROADMAP](docs/ROADMAP.md) | Next features: real functionality and visual upgrades |
 | [LIVE_DRIVE](docs/LIVE_DRIVE.md) | Planned: running it in a real car (phone, OBD-II, head unit) |
+| [REALISM_AND_FEATURES](docs/REALISM_AND_FEATURES.md) | Planned: making the 3D read as real Powai, and twelve features ranked for Mumbai roads |
 | [PLAN](docs/PLAN.md) | The original ideation and build plan |
 | [AGENTS](AGENTS.md) | Context for AI coding agents working in this repo |
 | [CHANGELOG](CHANGELOG.md) | What each build phase added |

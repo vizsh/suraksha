@@ -1,7 +1,7 @@
 // Animated people (CesiumMan, CC-BY 4.0 Cesium). The person behind the bus is the scenario's
 // pedestrian; once the network knows about them, a ghost of the same walking figure is drawn
 // through whatever hides them, in the threat's colour. Others walk the footpaths for life.
-import { useEffect, useMemo } from 'react'
+import { useMemo } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { useGLTF } from '@react-three/drei'
 import * as THREE from 'three'
@@ -13,6 +13,23 @@ import { useSim } from '../../world/store'
 const URL = '/assets/models/walker.glb'
 const TARGET_H = 1.68
 const STATE_COLOR: Record<string, string> = { confirmed: '#e0401f', potential: '#d19a1c', noticed: '#d19a1c' }
+// CesiumMan walks toward its own +Z. At normal speed its planted foot moves back at 0.745 model
+// units/s, 0.83 m/s at our scale: the playback rate that keeps feet planted is speed / 0.83.
+const STRIDE_MPS = (0.745 * TARGET_H) / 1.51
+// clip time with both feet closest to the ground: used as the standing pose
+const STAND_T = 1.61
+
+/** Advance the walk cycle so the feet match ground speed; hold a standing pose when still. */
+function stride(w: { mixer: THREE.AnimationMixer; action: THREE.AnimationAction | null }, speed: number, dt: number) {
+  if (!w.action) return
+  if (speed < 0.08) {
+    w.action.time = STAND_T
+    w.mixer.update(0)
+    return
+  }
+  w.mixer.timeScale = speed / STRIDE_MPS
+  w.mixer.update(dt)
+}
 
 function useWalker(tint?: string, ghost = false) {
   const gltf = useGLTF(URL)
@@ -38,8 +55,8 @@ function useWalker(tint?: string, ghost = false) {
     const holder = new THREE.Group()
     holder.add(root)
     const mixer = new THREE.AnimationMixer(root)
-    if (gltf.animations[0]) mixer.clipAction(gltf.animations[0]).play()
-    return { holder, mixer, ghostMat }
+    const action = gltf.animations[0] ? mixer.clipAction(gltf.animations[0]).play() : null
+    return { holder, mixer, action, ghostMat }
   }, [gltf, tint, ghost])
 }
 
@@ -48,15 +65,20 @@ function KeyPedestrian({ world, xray }: { world: World; xray: boolean }) {
   const body = useWalker('#d7c6a6')
   const ghost = useWalker(undefined, true)
   useFrame((_, dt) => {
-    const p = sampleAgents(world, simTime()).find((a) => a.id === 'ped')
+    const t = simTime()
+    const p = sampleAgents(world, t).find((a) => a.id === 'ped')
+    // crossing speed from the scripted path, in metres per scenario second
+    const q = p && sampleAgents(world, t + 0.1).find((a) => a.id === 'ped')
+    const speed = p && q ? Math.hypot(q.x - p.x, q.z - p.z) / 0.1 : 0
     const th = useSim.getState().threats.find((x) => x.kind === 'pedestrian' && x.state !== 'resolved')
     for (const w of [body, ghost]) {
       w.holder.visible = !!p
       if (!p) continue
       w.holder.position.set(p.x, 0.15, p.z)
-      // walking across the carriageway, from the kerb toward the median
-      w.holder.rotation.y = p.heading + Math.PI / 2
-      w.mixer.update(dt)
+      // facing across the carriageway, from the kerb toward the median: the path's right-hand
+      // normal (-dz, dx) is (sin, cos) of heading - 90 degrees
+      w.holder.rotation.y = p.heading - Math.PI / 2
+      stride(w, speed, dt)
     }
     ghost.holder.visible = !!p && xray && !!th
     if (th && ghost.ghostMat) ghost.ghostMat.color.set(STATE_COLOR[th.state] ?? '#e0401f')
@@ -87,16 +109,13 @@ function AmbientOne({ world, i, tint }: { world: World; i: number; tint: string 
   const side = i % 2 ? 1 : -1
   const s0 = world.sStart + 40 + i * 62
   const dir = i % 3 === 0 ? -1 : 1
-  useEffect(() => {
-    w.mixer.timeScale = speed / 1.2
-  }, [w, speed])
   useFrame((_, dt) => {
     const t = simTime()
     const s = s0 + dir * speed * t
     const p = world.path.at(s, side * 9.1)
     w.holder.position.set(p.x, 0.15, p.z)
     w.holder.rotation.y = p.heading + (dir > 0 ? 0 : Math.PI)
-    w.mixer.update(dt)
+    stride(w, speed, dt)
   })
   return <primitive object={w.holder} />
 }
