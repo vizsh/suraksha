@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import { ArrowCounterClockwiseIcon, CameraIcon, MapPinIcon, PulseIcon, ShieldCheckIcon } from '@phosphor-icons/react'
 import { useSim, threatForObservation } from '../world/store'
 import { useEvents } from '../sync/events'
@@ -26,6 +26,7 @@ export default function PhoneApp() {
         className="relative mx-auto h-[100dvh] w-full max-w-[430px] overflow-hidden bg-clay md:h-[844px] md:max-w-[390px] md:rounded-[40px]"
         style={{ boxShadow: '0 40px 80px -30px rgba(40,34,26,0.45), 0 0 0 10px #1c2226' }}
       >
+        <OfflineBanner />
         <div className="h-full overflow-y-auto pb-24 pt-[env(safe-area-inset-top)]">
           {tab === 0 && <DriveTab />}
           {tab === 1 && <MapTab />}
@@ -35,6 +36,37 @@ export default function PhoneApp() {
         <TabBar active={tab} onChange={setTab} />
       </div>
     </main>
+  )
+}
+
+function useOnline() {
+  return useSyncExternalStore(
+    (cb) => {
+      window.addEventListener('online', cb)
+      window.addEventListener('offline', cb)
+      return () => {
+        window.removeEventListener('online', cb)
+        window.removeEventListener('offline', cb)
+      }
+    },
+    () => navigator.onLine,
+  )
+}
+
+/** Reports made without a connection are kept and sent later; say so plainly. */
+function OfflineBanner() {
+  const online = useOnline()
+  const pending = useEvents((s) => s.pending)
+  if (online && pending === 0) return null
+  return (
+    <div className="absolute inset-x-0 top-0 z-20 flex items-center gap-2 bg-ink px-4 py-2 pt-[calc(env(safe-area-inset-top)+8px)] text-[12px] text-clay">
+      <span className={'h-2 w-2 rounded-full ' + (online ? 'bg-[#7fb6e6]' : 'bg-potential')} />
+      {online
+        ? `Sending ${pending} queued report${pending === 1 ? '' : 's'}`
+        : pending > 0
+          ? `Offline. ${pending} report${pending === 1 ? '' : 's'} saved; they send when you reconnect.`
+          : 'Offline. You can still report; it sends when you reconnect.'}
+    </div>
   )
 }
 

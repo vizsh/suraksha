@@ -84,6 +84,8 @@ One shared world, seven live surfaces. Every device follows the same scenario se
 </tr>
 </table>
 
+<p align="center"><img src="docs/images/split-view.jpg" alt="Split view: the driver's own cameras see nothing, while the network already knows about the pedestrian and the barricade" width="100%" /><br/><b>One car vs the network</b> · drag the divider: your cameras alone, or everything the network knows</p>
+
 <p align="center"><img src="docs/images/palette.jpg" alt="Command palette searching for the barricade" width="70%" /><br/><b>Command palette</b> · Ctrl/Cmd + K: surfaces, threats, story moments, layers</p>
 
 <p align="center"><img src="docs/images/phone.jpg" alt="Phone app: Road Ahead list and the phone as a road sensor" width="300" /><br/><b>Phone app</b> <code>/app</code> · Road Ahead, camera reports, the phone's accelerometer as a road sensor</p>

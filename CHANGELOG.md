@@ -1,5 +1,11 @@
 # Changelog
 
+## Phase 3: split view and offline (2026-11-26)
+
+- **One car vs the network:** the same night moment from the driver's seat rendered twice with a draggable divider. Left shows only what the car's own cameras know; right shows the fused network, with the pedestrian drawn through the bus. Jump buttons pause on the moments that matter.
+- **Installable, offline-ready phone app:** web app manifest and icons; a service worker keeps `/app` working with no connection (verified: the production build reloads offline and still shows Road Ahead).
+- **Report outbox:** events made while offline are kept and sent when the connection returns; the phone says how many are waiting. Sync reconnects on its own.
+
 ## Phase 2: real-use features (2026-11-26)
 
 - **Monsoon early warning:** the next 6 hours of rain (Open-Meteo) over the corridor's lowest named road points (Copernicus elevation via Open-Meteo). From 8 mm in 6 hours, predicted waterlogging threats appear on every surface and in drivers' feeds before any water is on the road. Ops has a Monsoon tab with the forecast, the low points and a clearly labelled cloudburst rehearsal.

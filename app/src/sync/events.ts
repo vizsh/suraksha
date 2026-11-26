@@ -32,6 +32,7 @@ interface EventsState {
   workOrders: WorkOrder[]
   thumbs: Record<string, string>
   remote: RemoteStatus
+  pending: number // events waiting to reach other devices
   addObservation: (o: Observation, thumb?: string) => void
   addManoeuvre: (m: Manoeuvre) => void
   upsertWorkOrder: (w: WorkOrder) => void
@@ -71,6 +72,7 @@ export const useEvents = create<EventsState>((set, get) => ({
   deviceId: deviceId(),
   ...load(),
   remote: 'off',
+  pending: loadOutbox().length,
   addObservation: (obs, thumb) => share({ type: 'obs', obs, thumb }),
   addManoeuvre: (man) => share({ type: 'man', man }),
   upsertWorkOrder: (wo) => share({ type: 'wo', wo }),
@@ -122,12 +124,56 @@ channel?.addEventListener('message', (m: MessageEvent<Envelope>) => useEvents.ge
 
 let since = 0
 let started = false
+let pollTimer: ReturnType<typeof setInterval> | null = null
+
+// ---------- outbox: events made offline wait here and send when the connection returns ----------
+
+const OUTBOX = 'suraksha.outbox.v1'
+function loadOutbox(): unknown[] {
+  try {
+    // literal key: this also runs while the store is being created, before OUTBOX is initialised
+    return JSON.parse(localStorage.getItem('suraksha.outbox.v1') ?? '[]')
+  } catch {
+    return []
+  }
+}
+function saveOutbox(items: unknown[]) {
+  try {
+    localStorage.setItem(OUTBOX, JSON.stringify(items.slice(-200)))
+  } catch {
+    /* ignore */
+  }
+  useEvents.setState({ pending: items.length })
+}
+
+async function send(body: unknown) {
+  const res = await fetch('/api/events', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+  if (!res.ok) throw new Error(String(res.status))
+}
 
 async function post(body: unknown) {
   try {
-    await fetch('/api/events', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) })
+    await send(body)
   } catch {
-    /* offline: local copy is still correct */
+    saveOutbox([...loadOutbox(), body])
+  }
+}
+
+let flushing = false
+export async function flushOutbox() {
+  if (flushing) return
+  flushing = true
+  try {
+    let items = loadOutbox()
+    while (items.length) {
+      await send(items[0])
+      items = items.slice(1)
+      saveOutbox(items)
+    }
+  } catch {
+    /* still offline; try again later */
+  } finally {
+    flushing = false
   }
 }
 
@@ -146,6 +192,7 @@ async function poll() {
       useEvents.getState().apply(ev.envelope)
     }
     if (data.clock) applyClock(data.clock)
+    if (loadOutbox().length) void flushOutbox()
     return true
   } catch {
     if (useEvents.getState().remote !== 'on') useEvents.setState({ remote: 'unavailable' })
@@ -154,6 +201,17 @@ async function poll() {
 }
 
 /** Start cross-device sync if the deployment has a shared store. Safe to call many times. */
+if (typeof window !== 'undefined') {
+  window.addEventListener('online', () => {
+    void flushOutbox()
+    // the first check may have happened offline: try linking again
+    if (useEvents.getState().remote !== 'on') {
+      started = false
+      startRemoteSync()
+    }
+  })
+}
+
 export function startRemoteSync() {
   if (started || typeof window === 'undefined') return
   started = true
@@ -166,9 +224,11 @@ export function startRemoteSync() {
     for (const man of manoeuvres) void post({ envelope: { type: 'man', man } })
     for (const wo of workOrders) void post({ envelope: { type: 'wo', wo } })
     // poll only while the page is visible, to keep the shared store's usage small
-    setInterval(() => {
-      if (document.visibilityState === 'visible') void poll()
-    }, 2000)
-    onClockChange(() => void post({ clock: clockState() }))
+    if (!pollTimer) {
+      pollTimer = setInterval(() => {
+        if (document.visibilityState === 'visible') void poll()
+      }, 2000)
+      onClockChange(() => void post({ clock: clockState() }))
+    }
   })
 }

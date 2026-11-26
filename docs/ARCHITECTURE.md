@@ -65,6 +65,10 @@ Each canvas renders only while on screen (IntersectionObserver), so several live
 2. mirrored to other tabs with BroadcastChannel
 3. when `/api/events` answers `{ configured: true }`, polled every 2 s while the page is visible and posted on every change
 
+Events made while the device is offline go to an **outbox** in `localStorage` and are sent when the browser fires `online` or the next poll succeeds; the phone app shows how many are waiting.
+
+**Offline shell:** `public/sw.js` (registered only in production) serves pages network-first with a cached fallback, built code and assets cache-first, and the corridor data stale-while-revalidate. With `public/manifest.webmanifest`, `/app` installs to the home screen.
+
 `api/events.ts` stores an append-only list (last 500, 3-day TTL) and the clock in Upstash Redis via its REST pipeline. Without credentials it returns `configured: false` and the app stays per-browser.
 
 ## Routes

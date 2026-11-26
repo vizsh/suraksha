@@ -281,7 +281,7 @@ function DriverCam({ world, who }: { world: World; who: string }) {
 }
 
 /** The night sheet: graphite road, clay hairline lanes, headlights, threats drawn through what hides them. */
-export function DriverCanvas({ world, who = 'ego', className, xray = true }: { world: World; who?: string; className?: string; xray?: boolean }) {
+export function DriverCanvas({ world, who = 'ego', className, xray = true, own = false }: { world: World; who?: string; className?: string; xray?: boolean; own?: boolean }) {
   return (
     <Frame className={className}>
       <color attach="background" args={['#0a0f15']} />
@@ -293,7 +293,7 @@ export function DriverCanvas({ world, who = 'ego', className, xray = true }: { w
       </Suspense>
       <hemisphereLight args={['#4d5f73', '#120f0c', 0.55]} />
       <directionalLight position={[200, 300, 100]} intensity={0.12} color="#9fb2bb" />
-      <CityScene world={world} mode="night" xray={xray} isolines={false} labels={false} waveFrom={who} fans={false} driver />
+      <CityScene world={world} mode="night" xray={xray && !own} own={own} isolines={false} labels={false} waveFrom={who} fans={false} driver />
       <EffectComposer multisampling={0} enableNormalPass={false}>
         <Bloom luminanceThreshold={0.9} luminanceSmoothing={0.2} intensity={1.15} mipmapBlur />
       </EffectComposer>

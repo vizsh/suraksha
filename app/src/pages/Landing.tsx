@@ -7,6 +7,7 @@ import { setOverride } from '../world/clock'
 import { useSim } from '../world/store'
 import { SurfaceNav } from '../app/SurfaceNav'
 import { Playground } from '../product/Playground'
+import { SplitView } from '../product/SplitView'
 import { CarSection, CitySection, Close, Legend, LifecycleSection, PhoneSection, SurfacesIndex } from './Showcase'
 
 const CHAPTERS = [
@@ -153,6 +154,23 @@ function PlaygroundSection() {
   )
 }
 
+function SplitSection() {
+  const world = useSim((s) => s.world)!
+  return (
+    <section className="mx-auto max-w-[1400px] px-5 py-20 md:px-10">
+      <h2 className="max-w-[22ch] text-balance text-[32px] font-semibold leading-[1.06] tracking-[-0.02em] md:text-[48px]" style={{ fontVariationSettings: "'wdth' 112" }}>
+        One car sees 100 metres. The network sees the road.
+      </h2>
+      <p className="mt-4 max-w-[62ch] text-[16px] leading-relaxed text-ink-2">
+        The same moment from the driver's seat, twice. Left: only what this car's own cameras know. Right: what every connected car has told the network. Drag the divider.
+      </p>
+      <div className="mt-10">
+        <SplitView world={world} />
+      </div>
+    </section>
+  )
+}
+
 function Value() {
   const cols = [
     ['For drivers', 'Lane-level warnings before the hazard is visible, a safety score that rewards smooth driving, and fewer false alarms because single reports are said softly.'],
@@ -207,6 +225,7 @@ export default function Landing() {
       <Story />
       <Numbers />
       <PlaygroundSection />
+      <SplitSection />
       <CitySection world={world} />
       <CarSection world={world} />
       <PhoneSection world={world} />

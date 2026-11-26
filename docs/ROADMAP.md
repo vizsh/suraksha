@@ -1,5 +1,7 @@
 # Roadmap
 
+**Shipped so far:** A2 map matching, A5 monsoon early warning, A6 route risk, A8 work-order export, A12 offline phone app (Phase 2 and 3); B2 time and weather, B7 near-miss heat, B8 split view, B10 directional chimes, B11 command palette (Phase 1 and 3). See [CHANGELOG](../CHANGELOG.md).
+
 Two tracks: features that make SuRaksha Mesh solve the problem in production, and visual work that makes the prototype unmistakably state of the art. Each item names the open tool that gets it there.
 
 ## Track A: real functionality

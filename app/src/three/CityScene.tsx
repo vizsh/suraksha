@@ -39,6 +39,7 @@ export function CityScene({
   dusk = false,
   rain = false,
   heat = false,
+  own = false,
 }: {
   world: World
   mode?: SheetMode
@@ -54,6 +55,8 @@ export function CityScene({
   dusk?: boolean
   rain?: boolean
   heat?: boolean
+  /** show only what this car itself has sensed (split view, left side) */
+  own?: boolean
 }) {
   const night = mode === 'night'
   const google = photoreal && !night && !!GOOGLE_KEY
@@ -127,7 +130,7 @@ export function CityScene({
       {heat && <NearMissHeat world={world} />}
       {fans && <SensorFans world={world} />}
       {!driver && <Arcs world={world} />}
-      <Markers labels={labels} mode={mode} driver={driver} />
+      <Markers labels={labels} mode={mode} driver={driver} own={own} />
     </group>
   )
 }
@@ -292,12 +295,13 @@ function Arcs({ world }: { world: World }) {
   )
 }
 
-function Markers({ labels, mode, driver }: { labels: boolean; mode: SheetMode; driver: boolean }) {
+function Markers({ labels, mode, driver, own = false }: { labels: boolean; mode: SheetMode; driver: boolean; own?: boolean }) {
   const threats = useSim((st) => st.threats)
   return (
     <group>
       {threats
         .filter((th) => !(driver && th.state === 'predicted'))
+        .filter((th) => !own || th.sources.some((s) => s.who === 'Your car'))
         .map((th) => (
           <Benchmark key={th.id} th={th} labels={labels} mode={mode} compact={driver} />
         ))}
