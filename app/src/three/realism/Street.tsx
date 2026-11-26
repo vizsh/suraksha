@@ -136,8 +136,8 @@ function pointInPoly(x: number, z: number, poly: [number, number][]) {
   return inside
 }
 
-export function Trees({ world, night }: { world: World; night: boolean }) {
-  const pts = useMemo(() => {
+/** Tree positions along the roadsides, clear of buildings and carriageways. Cached per world. */
+export function treePoints(world: World) {
     const hit = treeCache.get(world)
     if (hit) return hit
     // bounding boxes first: the polygon test only runs for the few buildings near a point
@@ -156,7 +156,10 @@ export function Trees({ world, night }: { world: World; night: boolean }) {
     )
     treeCache.set(world, out)
     return out
-  }, [world])
+}
+
+export function Trees({ world, night }: { world: World; night: boolean }) {
+  const pts = useMemo(() => treePoints(world), [world])
   const { trunk, crown } = useMemo(() => {
     const trunk = new THREE.CylinderGeometry(0.16, 0.26, 3.4, 7).translate(0, 1.7, 0)
     const a = new THREE.IcosahedronGeometry(2.4, 1).translate(0, 4.6, 0)

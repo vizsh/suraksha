@@ -10,9 +10,11 @@ interface AtmosState {
   rain: boolean
   live: boolean
   heat: boolean
+  lidar: boolean
   setTime: (t: TimeOfDay) => void
   setRain: (r: boolean) => void
   setHeat: (h: boolean) => void
+  setLidar: (l: boolean) => void
   goLive: (w: Weather | null) => void
 }
 
@@ -21,9 +23,11 @@ export const useAtmos = create<AtmosState>((set) => ({
   rain: false,
   live: false,
   heat: false,
+  lidar: false,
   setTime: (time) => set({ time, live: false }),
   setRain: (rain) => set({ rain, live: false }),
   setHeat: (heat) => set({ heat }),
+  setLidar: (lidar) => set({ lidar }),
   goLive: (w) => {
     if (!w) return set({ live: true })
     const hour = Number(new Date().toLocaleString('en-GB', { hour: 'numeric', hour12: false, timeZone: 'Asia/Kolkata' }))

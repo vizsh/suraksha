@@ -1,5 +1,11 @@
 # Changelog
 
+## Phase 5: pass-by verification, LiDAR and film mode (2026-11-26)
+
+- **Pass-by verification (A3):** a car or phone that drives past a known hazard and sees an empty lane sends a "saw nothing" observation. Distinct passers are counted since the last sighting; a new sighting resets the count, and a reporter cannot clear their own report. In the scripted night a fallen branch reported this evening starts confirmed and is cleared by three passing cars. The twin shows a blue sweep for each pass and a "cleared by N passing cars" label; the ops console keeps cleared threats listed and marks each passer "saw nothing"; the phone app has a "Not there now" vote; the dashcam votes automatically when it passes a hazard with a real GPS fix and its road check reads clear.
+- **LiDAR point-cloud mode (B5):** a LiDAR toggle on the city twin (and in the command palette) redraws the city as the point cloud a roof scanner returns: walls, roofs, carriageways, footpaths, lane paint, trees and open ground sampled into points once per world, coloured by kind and height. A scan line sweeps around your car, the road shows the concentric rings a spinning sensor leaves, the X-ray wave passes through the points, and the rest of the city sits dimmer as the map the fleet remembers. It switches on in about 0.3 s and holds frame rate on the production build.
+- **Film mode (B3):** a "Film mode" button on the city twin (and in the command palette) plays a six-shot flythrough of the 48 s story for screen recording: establishing shot, the fallen branch cleared by passing cars, the barricade confirmed by a resident, swerves and a dashcam, the pedestrian behind the bus from behind your car, the shared picture from above, and a closing pull-out. Shots are cut to the story's own beats, with letterbox bars, captions, a timecode and a dip to black on every cut; all other controls are hidden and the cursor hides when idle. Works in LiDAR mode and at any time of day. Esc leaves. (Named film mode because `/director` is already the demo clock.)
+
 ## Frontend audit and polish (2026-11-26)
 
 Every surface was captured at 1600x900, 1280x720 and 390x844 (phone), checked for overflow, clipping, overlapping panels and console errors, and fixed:

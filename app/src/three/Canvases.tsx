@@ -314,15 +314,57 @@ export function HeroCanvas({ world, xray, className }: { world: World; xray: boo
 // ---------- Twin: the full city surface with camera presets ----------
 
 import { useTwinCam } from '../world/twinCam'
+import { shotAt, useFilm } from '../world/film'
+import { BARRICADE_S, DEBRIS_S } from '../world/scenario'
+
+const ease = (k: number) => (k < 0.5 ? 4 * k * k * k : 1 - Math.pow(-2 * k + 2, 3) / 2)
+const mix = (a: number, b: number, k: number) => a + (b - a) * k
+
+/** Camera for each film-mode shot at scenario second t: [position, target]. */
+function filmCamera(world: World, t: number): [number, number, number, number, number, number] {
+  const { i, k } = shotAt(t)
+  const e = ease(k)
+  const P = (s: number, o = 0) => world.path.at(world.sStart + s, o)
+  const orbit = (cx: number, cz: number, ang: number, r: number, h: number, ty = 0): [number, number, number, number, number, number] => [
+    cx + Math.sin(ang) * r,
+    h,
+    cz + Math.cos(ang) * r,
+    cx,
+    ty,
+    cz,
+  ]
+  const bus = busFocus(world)
+  if (i === 0) return orbit(bus[0] + 40, bus[1] - 40, -0.75 + e * 0.32, mix(980, 640, e), mix(560, 380, e))
+  if (i === 1) {
+    const d = P(DEBRIS_S)
+    return orbit(d.x, d.z, d.heading + 2.1 - e * 0.9, mix(96, 64, e), mix(46, 24, e), 1)
+  }
+  if (i === 2) {
+    const b = P(BARRICADE_S, -3.5)
+    return orbit(b.x, b.z, b.heading + 2.6 + e * 0.5, mix(60, 120, e), mix(12, 95, e), 1)
+  }
+  if (i === 3) {
+    const ego = sampleAgents(world, t).find((a) => a.id === 'ego')!
+    const fx = Math.sin(ego.heading)
+    const fz = Math.cos(ego.heading)
+    const back = mix(52, 38, e)
+    return [ego.x - fx * back + fz * 9, mix(20, 13, e), ego.z - fz * back - fx * 9, ego.x + fx * 55, 0, ego.z + fz * 55]
+  }
+  if (i === 4) return orbit(bus[0], bus[1], 0.2 + e * 0.5, mix(60, 140, e), mix(720, 300, e))
+  return orbit(bus[0] + 40, bus[1] - 40, 0.7 + e * 0.6, mix(260, 1150, e), mix(150, 720, e))
+}
 
 function TwinCamera({ world }: { world: World }) {
   const ref = useRef<CameraControls>(null)
   const view = useTwinCam((s) => s.view)
   const focus = useTwinCam((s) => s.focus)
   const bus = useMemo(() => busFocus(world), [world])
+  const film = useFilm((s) => s.on)
   useEffect(() => {
     const c = ref.current
     if (!c) return
+    c.enabled = !film
+    if (film) return
     if (focus) {
       void c.setLookAt(focus[0] - 140, 120, focus[1] + 150, focus[0], 0, focus[1], true)
       return
@@ -330,10 +372,15 @@ function TwinCamera({ world }: { world: World }) {
     if (view === 'city') void c.setLookAt(bus[0] - 560, 430, bus[1] + 620, bus[0] + 40, 0, bus[1] - 40, true)
     if (view === 'corridor') void c.setLookAt(bus[0] - 210, 150, bus[1] + 230, bus[0] + 30, 0, bus[1] - 10, true)
     if (view === 'top') void c.setLookAt(bus[0], 900, bus[1] + 1, bus[0], 0, bus[1], true)
-  }, [view, focus, bus])
+  }, [view, focus, bus, film])
   useFrame(() => {
     const c = ref.current
-    if (!c || view !== 'chase' || focus) return
+    if (!c) return
+    if (film) {
+      void c.setLookAt(...filmCamera(world, simTime()), false)
+      return
+    }
+    if (view !== 'chase' || focus) return
     const ego = sampleAgents(world, simTime()).find((a) => a.id === 'ego')!
     const fx = Math.sin(ego.heading)
     const fz = Math.cos(ego.heading)
@@ -342,17 +389,30 @@ function TwinCamera({ world }: { world: World }) {
   return <CameraControls ref={ref} makeDefault minDistance={40} maxDistance={2200} maxPolarAngle={1.35} smoothTime={0.6} />
 }
 
+const LIDAR_BG = '#05080b'
+/** Keep a flat background colour; the sky environment restores its own when its props change. */
+function HoldBackground({ color }: { color: string }) {
+  const scene = useThree((s) => s.scene)
+  const c = useMemo(() => new THREE.Color(color), [color])
+  useFrame(() => {
+    if (scene.background !== c) scene.background = c
+  })
+  useEffect(() => () => void (scene.background = null), [scene])
+  return null
+}
+
 export function TwinCanvas({ world, xray, isolines, labels, className }: { world: World; xray: boolean; isolines: boolean; labels: boolean; className?: string }) {
   const focus = useMemo(() => busFocus(world), [world])
-  const { time, rain, heat } = useAtmos()
+  const { time, rain, heat, lidar } = useAtmos()
   return (
     <Frame className={className}>
-      <fog attach="fog" args={[SUN[time].fog, time === 'day' ? 1300 : 900, time === 'day' ? 3600 : 2600]} />
-      <DaySky time={time} />
+      <fog attach="fog" args={lidar ? [LIDAR_BG, 1600, 3400] : [SUN[time].fog, time === 'day' ? 1300 : 900, time === 'day' ? 3600 : 2600]} />
+      <DaySky time={time} background={!lidar} />
+      {lidar && <HoldBackground color={LIDAR_BG} />}
       <PerspectiveCamera makeDefault fov={32} near={6} far={8000} position={[focus[0] - 560, 430, focus[1] + 620]} />
       <TwinCamera world={world} />
       <DayLight target={focus} time={time} />
-      <CityScene world={world} xray={xray} isolines={isolines} labels={labels} mode={time === 'day' ? 'day' : 'night'} dusk={time === 'dusk'} rain={rain} wet={rain} heat={heat} photoreal={time === 'day'} />
+      <CityScene world={world} xray={xray} isolines={isolines} labels={labels} mode={time === 'day' ? 'day' : 'night'} dusk={time === 'dusk'} rain={rain} wet={rain} heat={heat} photoreal={time === 'day'} lidar={lidar} />
       <Post />
     </Frame>
   )

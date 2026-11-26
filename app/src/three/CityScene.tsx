@@ -14,6 +14,7 @@ import { GOOGLE_KEY, SatelliteGround } from './realism/Ground'
 const GoogleTiles = lazy(() => import('./realism/GoogleTiles'))
 import { Rain } from './realism/Rain'
 import { NearMissHeat } from './realism/Heat'
+import { Lidar } from './Lidar'
 
 export type SheetMode = 'day' | 'night'
 
@@ -59,6 +60,7 @@ export function CityScene({
   rain = false,
   heat = false,
   own = false,
+  lidar = false,
 }: {
   world: World
   mode?: SheetMode
@@ -76,9 +78,11 @@ export function CityScene({
   heat?: boolean
   /** show only what this car itself has sensed (split view, left side) */
   own?: boolean
+  /** draw the city as the point cloud a roof scanner returns, instead of surfaces */
+  lidar?: boolean
 }) {
   const night = mode === 'night'
-  const google = photoreal && !night && !!GOOGLE_KEY
+  const google = photoreal && !night && !lidar && !!GOOGLE_KEY
   const geo = useMemo(() => cityGeometry(world), [world])
 
   const u = useMemo(() => makeWaveUniforms(1), [])
@@ -104,12 +108,16 @@ export function CityScene({
 
   return (
     <group>
-      {/* earth beyond the imagery, then the imagery itself */}
-      <mesh rotation-x={-Math.PI / 2} position-y={-1.5} receiveShadow>
-        <planeGeometry args={[6000, 6000]} />
-        <meshStandardMaterial color={night ? '#0e1214' : '#9a9886'} roughness={1} />
-      </mesh>
-      {google ? (
+      {lidar ? (
+        <Lidar world={world} geo={geo} xray={xray} waveFrom={waveFrom} />
+      ) : (
+        /* earth beyond the imagery, then the imagery itself */
+        <mesh rotation-x={-Math.PI / 2} position-y={-1.5} receiveShadow>
+          <planeGeometry args={[6000, 6000]} />
+          <meshStandardMaterial color={night ? '#0e1214' : '#9a9886'} roughness={1} />
+        </mesh>
+      )}
+      {lidar ? null : google ? (
         <Suspense fallback={null}>
           <GoogleTiles data={world.data} calibrateAt={[world.path.at(world.sStart + BUS_S, 0).x, world.path.at(world.sStart + BUS_S, 0).z]} />
         </Suspense>
@@ -125,10 +133,10 @@ export function CityScene({
           <Lamps world={world} night={night} />
         </>
       )}
-      <mesh geometry={geo.lanes.dash}>
+      <mesh geometry={geo.lanes.dash} visible={!lidar}>
         <meshStandardMaterial polygonOffset polygonOffsetFactor={-6} polygonOffsetUnits={-6} color="#f4f2ec" roughness={0.6} emissive="#ffffff" emissiveIntensity={night ? 0.06 : 0} />
       </mesh>
-      <mesh geometry={geo.lanes.solid}>
+      <mesh geometry={geo.lanes.solid} visible={!lidar}>
         <meshStandardMaterial polygonOffset polygonOffsetFactor={-6} polygonOffsetUnits={-6} color="#f4f2ec" roughness={0.6} emissive="#ffffff" emissiveIntensity={night ? 0.06 : 0} />
       </mesh>
       <mesh geometry={geo.gap} position-y={0.02}>
@@ -143,7 +151,7 @@ export function CityScene({
       <Pothole world={world} />
       {rain && <Rain night={night} />}
       {heat && <NearMissHeat world={world} />}
-      {fans && <SensorFans world={world} />}
+      {fans && !lidar && <SensorFans world={world} />}
       {!driver && <Arcs world={world} />}
       <Markers labels={labels} mode={mode} driver={driver} own={own} />
     </group>

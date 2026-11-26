@@ -99,7 +99,7 @@ Everything below runs in the prototype today. Routes are in brackets; press `Ctr
 
 | Feature | What it does |
 |---|---|
-| **City twin** (`/twin`) | Real satellite imagery of Powai, 352 OSM buildings, X-ray sensor wave, risk terrain, near-miss heat, day, dusk, night, rain and "Live Powai" weather |
+| **City twin** (`/twin`) | Real satellite imagery of Powai, 352 OSM buildings, X-ray sensor wave, risk terrain, near-miss heat, day, dusk, night, rain and "Live Powai" weather, a LiDAR point-cloud mode, and film mode for recording the pitch |
 | **Scroll story** (`/`) | One continuous camera move from the city to street level while the scenario plays |
 | **Fusion Lab** | Add evidence and watch the real engine decide, with an autoplay for the pitch |
 | **One car vs the network** | Drag a divider between what your car sees and what the network knows |
@@ -171,6 +171,10 @@ One shared world, eight live surfaces. Every device follows the same scenario se
 <tr>
 <td width="50%"><img src="docs/images/twin-night-rain.jpg" alt="City twin at night in monsoon rain with lit windows and street lamps" /><br/><b>Night and monsoon</b> · time of day, rain and wet roads, or "Live Powai" from real weather</td>
 <td width="50%"><img src="docs/images/twin-heat.jpg" alt="Near-miss heat columns rising along JVLR" /><br/><b>Near-miss heat</b> · 30 days of harsh braking as hexagon columns</td>
+</tr>
+<tr>
+<td width="50%"><img src="docs/images/twin-lidar.jpg" alt="City twin as a LiDAR point cloud: blue buildings, white lane paint and green trees on black" /><br/><b>LiDAR mode</b> · the city as a roof scanner sees it, with a scan sweep around your car</td>
+<td width="50%"><img src="docs/images/twin-film.jpg" alt="Film mode: letterboxed shot behind the ego car with the caption Someone behind the bus" /><br/><b>Film mode</b> · a six-shot flythrough of the story, captioned and letterboxed, ready to screen-record</td>
 </tr>
 </table>
 

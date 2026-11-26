@@ -9,6 +9,7 @@ import { useSim } from '../world/store'
 import { useTwinCam } from '../world/twinCam'
 import { seek, pause, play, resync, clockState } from '../world/clock'
 import { useAtmos } from '../world/atmos'
+import { useFilm } from '../world/film'
 import { useWeather } from '../sense/weather'
 import { STATE, StateGlyph } from '../product/bits'
 
@@ -104,6 +105,17 @@ export function CommandPalette() {
                     ))}
                 </Command.Group>
                 <Command.Group heading="Story moments" className={group}>
+                  <Command.Item
+                    value="film mode record pitch video flythrough cinematic"
+                    onSelect={run(() => {
+                      go('/twin')
+                      setXray(true)
+                      useFilm.getState().start()
+                    })}
+                    className={item}
+                  >
+                    Film mode: play the six-shot flythrough for recording
+                  </Command.Item>
                   {BEATS.map(([t, label]) => (
                     <Command.Item key={t} value={`moment ${label}`} onSelect={run(() => seek(t))} className={item}>
                       <span className="figures w-10 text-[11px] text-ink-3">{t.toFixed(1)}</span>
@@ -120,6 +132,9 @@ export function CommandPalette() {
                 <Command.Group heading="Layers and atmosphere" className={group}>
                   <Command.Item value="layer xray sensor wave" onSelect={run(() => setXray(!xray))} className={item}>
                     {xray ? 'Hide' : 'Show'} the X-ray sensor wave
+                  </Command.Item>
+                  <Command.Item value="layer lidar point cloud scanner" onSelect={run(() => { atmos.setLidar(!atmos.lidar); go('/twin') })} className={item}>
+                    {atmos.lidar ? 'Leave' : 'Show'} the LiDAR point cloud
                   </Command.Item>
                   <Command.Item value="layer near miss heat" onSelect={run(() => atmos.setHeat(!atmos.heat))} className={item}>
                     {atmos.heat ? 'Hide' : 'Show'} near-miss heat
