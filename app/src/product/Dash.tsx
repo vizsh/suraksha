@@ -58,7 +58,9 @@ function StatusBar({ world }: { world: World }) {
     return () => clearInterval(id)
   }, [])
   const weather = useWeather((s) => s.weather)
-  const { time, rain } = useAtmos()
+  const atmosRain = useAtmos((st) => st.rain)
+  const time = world.scenario.time
+  const rain = atmosRain || !!world.scenario.rain
   const linked = useSim((s) => s.feed.length)
   const ist = clock.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: false, timeZone: 'Asia/Kolkata' })
   const Icon = rain ? CloudRainIcon : time === 'night' ? MoonIcon : SunIcon

@@ -584,8 +584,8 @@ function NavCam({ world }: { world: World }) {
     const ego = sampleAgents(world, simTime()).find((a) => a.id === 'ego')!
     const fx = Math.sin(ego.heading)
     const fz = Math.cos(ego.heading)
-    const wantPos = new THREE.Vector3(ego.x - fx * 150, 120, ego.z - fz * 150)
-    const wantLook = new THREE.Vector3(ego.x + fx * 90, 0, ego.z + fz * 90)
+    const wantPos = new THREE.Vector3(ego.x - fx * 105, 78, ego.z - fz * 105)
+    const wantLook = new THREE.Vector3(ego.x + fx * 75, 0, ego.z + fz * 75)
     if (first.current) {
       pos.current.copy(wantPos)
       look.current.copy(wantLook)
@@ -601,8 +601,23 @@ function NavCam({ world }: { world: World }) {
 }
 
 /** The route ahead as a glowing ribbon: bright in front of your car, faint behind, with a slow flow. */
-function RouteRibbon({ world }: { world: World }) {
+function RouteRibbon({ world, day = false }: { world: World; day?: boolean }) {
   const { geometry, material } = useMemo(() => {
+    // the ribbon sits in the lane your car is in at that point of the drive, so it matches the
+    // lane view beside it (and shows a planned lane change where the scenario makes one)
+    const egoS = world.egoS
+    const laneAt = (s: number) => {
+      let lo = 0
+      let hi = egoS.length - 1
+      if (s <= egoS[0]) return world.egoLane(0)
+      if (s >= egoS[hi]) return world.egoLane(hi * 0.05)
+      while (hi - lo > 1) {
+        const mid = (lo + hi) >> 1
+        if (egoS[mid] < s) lo = mid
+        else hi = mid
+      }
+      return world.egoLane(hi * 0.05)
+    }
     const pos: number[] = []
     const sAttr: number[] = []
     const side: number[] = []
@@ -610,7 +625,7 @@ function RouteRibbon({ world }: { world: World }) {
     const to = Math.min(world.path.length, world.sStart + 900)
     for (let s = from; s < to; s += 2) {
       for (const k of [-1, 1]) {
-        const p = world.path.at(s, k * 1.6)
+        const p = world.path.at(s, laneAt(s) + k * 1.5)
         pos.push(p.x, 0.3, p.z)
         sAttr.push(s)
         side.push(k)
@@ -626,26 +641,27 @@ function RouteRibbon({ world }: { world: World }) {
     const m = new THREE.ShaderMaterial({
       transparent: true,
       depthWrite: false,
-      blending: THREE.AdditiveBlending,
+      blending: day ? THREE.NormalBlending : THREE.AdditiveBlending,
       // main roads and lane paint are pulled toward the camera to avoid flicker; pull further
       polygonOffset: true,
       polygonOffsetFactor: -12,
       polygonOffsetUnits: -12,
-      uniforms: { uEgo: { value: 0 }, uTime: { value: 0 } },
+      uniforms: { uEgo: { value: 0 }, uTime: { value: 0 }, uDay: { value: day ? 1 : 0 } },
       vertexShader: `attribute float s; attribute float side; varying float vS; varying float vSide;
         void main() { vS = s; vSide = side; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }`,
-      fragmentShader: `uniform float uEgo; uniform float uTime; varying float vS; varying float vSide;
+      fragmentShader: `uniform float uEgo; uniform float uTime; uniform float uDay; varying float vS; varying float vSide;
         void main() {
           float ahead = vS - uEgo;
           float a = ahead < 0.0 ? 0.12 : mix(1.0, 0.35, clamp(ahead / 700.0, 0.0, 1.0));
           float edge = smoothstep(1.0, 0.55, abs(vSide));
           float flow = 0.75 + 0.25 * sin(ahead * 0.12 - uTime * 4.0);
           vec3 col = vec3(0.29, 0.64, 1.0) * (0.6 + 0.8 * edge) * flow;
+          if (uDay > 0.5) { gl_FragColor = vec4(mix(vec3(0.05, 0.38, 0.85), vec3(0.16, 0.55, 1.0), edge) , a * (0.55 + 0.4 * edge)); return; }
           gl_FragColor = vec4(col * a, 1.0);
         }`,
     })
     return { geometry: g, material: m }
-  }, [world])
+  }, [world, day])
   useFrame((st) => {
     material.uniforms.uEgo.value = world.egoS[Math.min(world.egoS.length - 1, Math.round(simTime() / 0.05))]
     material.uniforms.uTime.value = st.clock.elapsedTime
@@ -654,22 +670,35 @@ function RouteRibbon({ world }: { world: World }) {
 }
 
 export function NavCanvas({ world, className }: { world: World; className?: string }) {
-  const { time, rain } = useAtmos()
+  // the dash follows the scenario's own hour, like the driver's view
+  const time = world.scenario.time
+  const night = time === 'night'
+  const focus = useMemo(() => busFocus(world), [world])
   return (
     <Frame className={className}>
-      <color attach="background" args={['#06090c']} />
-      <fog attach="fog" args={['#06090c', 260, 900]} />
-      <PerspectiveCamera makeDefault fov={42} near={2} far={1400} />
+      {night ? (
+        <>
+          <color attach="background" args={['#06090c']} />
+          <fog attach="fog" args={['#06090c', 260, 900]} />
+          <Suspense fallback={null}>
+            <Environment files="/assets/hdri/night.hdr" environmentIntensity={0.3} />
+          </Suspense>
+          <hemisphereLight args={['#5d7085', '#0b0c0d', 0.75]} />
+          <directionalLight position={[200, 400, 100]} intensity={0.35} color="#b6c6d6" />
+        </>
+      ) : (
+        <>
+          <fog attach="fog" args={[SUN[time].fog, time === 'day' ? 420 : 300, time === 'day' ? 1500 : 1100]} />
+          <DaySky time={time} />
+          <DayLight target={focus} time={time} />
+        </>
+      )}
+      <PerspectiveCamera makeDefault fov={42} near={2} far={1600} />
       <NavCam world={world} />
-      <Suspense fallback={null}>
-        <Environment files="/assets/hdri/night.hdr" environmentIntensity={0.3} />
-      </Suspense>
-      <hemisphereLight args={['#5d7085', '#0b0c0d', 0.75]} />
-      <directionalLight position={[200, 400, 100]} intensity={0.35} color="#b6c6d6" />
-      <CityScene world={world} mode="night" dusk={time === 'dusk'} rain={rain && false} xray={false} isolines={false} labels={false} fans={false} photoreal={false} />
-      <RouteRibbon world={world} />
+      <CityScene world={world} mode={time === 'day' ? 'day' : 'night'} dusk={time === 'dusk'} rain={false} xray={false} isolines={false} labels={false} fans={false} photoreal={false} />
+      <RouteRibbon world={world} day={time === 'day'} />
       <Composer>
-        <Bloom luminanceThreshold={0.7} intensity={0.9} mipmapBlur />
+        <Bloom luminanceThreshold={night ? 0.7 : 0.95} intensity={night ? 0.9 : 0.4} mipmapBlur />
       </Composer>
     </Frame>
   )
